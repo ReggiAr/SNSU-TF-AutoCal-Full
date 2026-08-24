@@ -1,0 +1,12 @@
+{
+  "last_updated": "2026-08-14 10:13:00",
+  "frequency_sources": {
+    "HP 33120A": {
+      "manufacturer": "Hewlett-Packard",
+      "default_address": "GPIB0::10::INSTR",
+      "commands": {
+        "identify": "*IDN?"
+      }
+    }
+  }
+}

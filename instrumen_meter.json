@@ -1,0 +1,242 @@
+{
+  "last_updated": "2026-08-14 10:13:00",
+  "frequency_counters": {
+    "Agilent 53131A": {
+      "manufacturer": "Agilent",
+      "default_address": "GPIB0::3::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST,*CLS,*SRE 0,*ESE 0",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "FUNC:FREQ (@{channel})",
+          "Period": "FUNC:PER (@{channel})",
+          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)",
+          "Totalize": "FUNC:TOT:CONT (@{channel})"
+        },
+        "set_gate_time": {
+          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value}",
+          "Auto": "SENS:TOT:ARM:STOP:SOUR IMM"
+        },
+        "set_impedance": {
+          "50 OHM": "INP{channel}:IMP 50",
+          "1 M OHM": "INP{channel}:IMP 1M"
+        },
+        "set_coupling": {
+          "DC": "INP{channel}:COUP DC",
+          "AC": "INP{channel}:COUP AC"
+        }
+      }
+    },
+    "Agilent 53132A": {
+      "manufacturer": "Agilent/Keysight",
+      "default_address": "GPIB0::3::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST,*CLS,*SRE 0,*ESE 0",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "FUNC:FREQ (@{channel})",
+          "Period": "FUNC:PER (@{channel})",
+          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)"
+        },
+        "set_gate_time": {
+          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value}",
+          "Auto": "SENS:TOT:ARM:STOP:SOUR IMM"
+        },
+        "set_impedance": {
+          "50 OHM": "INP{channel}:IMP 50",
+          "1 M OHM": "INP{channel}:IMP 1M"
+        },
+        "set_coupling": {
+          "DC": "INP{channel}:COUP DC",
+          "AC": "INP{channel}:COUP AC"
+        }
+      }
+    },
+    "Keysight 53220A": {
+      "manufacturer": "Keysight Technologies",
+      "default_address": "USB0::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS, *SRE 0, *ESE 0",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "CONF:FREQ (@{channel})",
+          "Period": "CONF:PER (@{channel})"
+        },
+        "set_gate_time": {
+          "Time": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME {value}, *CLS",
+          "Auto": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME 0.1, *CLS"
+        },
+        "set_impedance": {
+          "50 OHM": "INP{channel}:IMP 50",
+          "1 M OHM": "INP{channel}:IMP 1E6"
+        },
+        "set_coupling": {
+          "DC": "INP{channel}:COUP DC",
+          "AC": "INP{channel}:COUP AC"
+        }
+      }
+    },
+    "Keysight 53230A": {
+      "manufacturer": "Keysight Technologies",
+      "default_address": "USB0::0x0957::0x1907::MY64130008::0::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS, *SRE 0, *ESE 0",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "CONF:FREQ (@{channel})",
+          "Period": "CONF:PER (@{channel})"
+        },
+        "set_gate_time": {
+          "Time": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME {value}, *CLS",
+          "Auto": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME 0.1, *CLS"
+        },
+        "set_impedance": {
+          "50 OHM": "INP{channel}:IMP 50",
+          "1 M OHM": "INP{channel}:IMP 1E6"
+        },
+        "set_coupling": {
+          "DC": "INP{channel}:COUP DC",
+          "AC": "INP{channel}:COUP AC"
+        }
+      }
+    },
+    "Agilent 53150A": {
+      "manufacturer": "Agilent/Keysight",
+      "default_address": "GPIB0::19::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "read": "READ?",
+        "functions": {
+          "Frequency": {
+            "1": "FUNC 'FREQ 1'; CONF:FREQ:RF; *CLS",
+            "2": "FUNC 'FREQ 2'; CONF:FREQ; *CLS"
+          }
+        },
+        "set_gate_time": {
+          "Time": "FREQ:RES {value}",
+          "Auto": "FREQ:RES 1"
+        }
+      }
+    },
+    "SRS SR620": {
+      "manufacturer": "Stanford Research Systems",
+      "default_address": "GPIB0::16::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "read": "MEAS? 0",
+        "functions": {
+          "Frequency": {
+            "1": "MODE 3; SRCE 0; ARMM 5; *CLS",
+            "2": "MODE 3; SRCE 1; ARMM 5; *CLS"
+          }
+        },
+        "set_gate_time": {
+          "Time": "SIZE {value}",
+          "Auto": "SIZE 1"
+        }
+      }
+    },
+    "Keysight 3458A": {
+      "manufacturer": "Keysight (Multimeter)",
+      "default_address": "GPIB0::22::INSTR",
+      "commands": {
+        "identify": "ID?",
+        "reset": "PRESET NORM",
+        "read": "FREQ?",
+        "functions": {
+          "Frequency": "FUNC FREQ"
+        },
+        "set_gate_time": {
+          "Time": "",
+          "Auto": ""
+        }
+      }
+    },
+    "Fluke PM6681": {
+      "manufacturer": "Fluke",
+      "default_address": "GPIB0::10::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "MEAS:FREQ? (@{channel})"
+        },
+        "set_gate_time": {
+          "Time": "SENS:FREQ:ARM:STOP:TIM {value}",
+          "Auto": ""
+        }
+      }
+    },
+    "Phillips PM6674": {
+      "manufacturer": "Phillips",
+      "default_address": "GPIB0::11::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST",
+        "read": "READ?",
+        "functions": {
+          "Frequency": "MEAS:FREQ? (@{channel})"
+        },
+        "set_gate_time": {
+          "Time": "",
+          "Auto": ""
+        }
+      }
+    },
+    "Advantest R5363": {
+      "manufacturer": "Advantest",
+      "default_address": "GPIB0::8::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "C",
+        "read": "E",
+        "functions": {
+          "Frequency": ""
+        },
+        "set_gate_time": {
+          "Time": "",
+          "Auto": ""
+        }
+      }
+    },
+    "BK Precision 1823A": {
+      "manufacturer": "BK Precision",
+      "default_address": "ASRL1::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "",
+        "read": "",
+        "functions": {
+          "Frequency": ""
+        },
+        "set_gate_time": {
+          "Time": "",
+          "Auto": ""
+        }
+      }
+    },
+    "BK Precision 1856D": {
+      "manufacturer": "BK Precision",
+      "default_address": "ASRL2::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "",
+        "read": "",
+        "functions": {
+          "Frequency": ""
+        },
+        "set_gate_time": {
+          "Time": "",
+          "Auto": ""
+        }
+      }
+    }
+  }
+}
