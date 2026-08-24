@@ -189,6 +189,207 @@ class WorkerPengukuranSemi(QThread):
         self._is_running = False
 
 # ==========================================
+# WORKER QTHREAD UNTUK PENGUKURAN FULL AUTO
+# ==========================================
+class WorkerPengukuranFull(QThread):
+    status_update = Signal(str)
+    data_ready = Signal(dict)
+    progress_titik_update = Signal(int)
+    progress_total_update = Signal(int)
+    error_occurred = Signal(str)
+    finished_task = Signal()
+
+    def __init__(self, inst_counter, inst_source, cmd_dict_c, cmd_dict_s, skenario_list,
+                 fungsi_meas, ch, osc, imp, coup, auto_trig, trig_lvl, slope, sens,
+                 jeda_titik, pengulangan, mode_manual=False):
+        super().__init__()
+        self.inst_counter = inst_counter
+        self.inst_source = inst_source
+        self.cmd_dict_c = cmd_dict_c
+        self.cmd_dict_s = cmd_dict_s
+        self.skenario_list = skenario_list
+        
+        self.fungsi_meas = fungsi_meas
+        self.ch = ch
+        self.osc = osc
+        self.imp = imp
+        self.coup = coup
+        self.auto_trig = auto_trig
+        self.trig_lvl = trig_lvl
+        self.slope = slope
+        self.sens = sens
+        
+        self.jeda_titik = jeda_titik
+        self.pengulangan = pengulangan
+        self.mode_manual = mode_manual
+        self._is_running = True
+
+    def run(self):
+        total_titik = len(self.skenario_list)
+        try:
+            for pt_idx, pt in enumerate(self.skenario_list):
+                if not self._is_running:
+                    break
+
+                level_val = pt["level"]
+                shape_val = pt["shape"]
+                freq_val_str = pt["freq_val"]
+                unit_str = pt["unit"]
+                gate_val = pt["gate_time"]
+                filter_val = pt["filter"]
+
+                # Konversi Frekuensi ke Hz
+                freq_float = float(freq_val_str)
+                if unit_str == "kHz":
+                    freq_hz = freq_float * 1000
+                elif unit_str == "MHz":
+                    freq_hz = freq_float * 1000000
+                elif unit_str == "GHz":
+                    freq_hz = freq_float * 1000000000
+                else:
+                    freq_hz = freq_float
+
+                titik_label = f"{freq_val_str} {unit_str} ({level_val})"
+                self.status_update.emit(f"Status: Set Titik {pt_idx+1}/{total_titik} - {titik_label}")
+
+                # --- TAHAP 1: SETTING FREQUENCY COUNTER ---
+                if not self.mode_manual and self.inst_counter:
+                    # Reset
+                    if "reset" in self.cmd_dict_c:
+                        for r_cmd in self.cmd_dict_c["reset"].split(","):
+                            if r_cmd.strip():
+                                self.inst_counter.write(r_cmd.strip())
+                    time.sleep(0.2)
+
+                    # Fungsi, Osc, Impedance, Coupling
+                    func_data = self.cmd_dict_c.get("functions", {}).get(self.fungsi_meas)
+                    if isinstance(func_data, str) and func_data:
+                        self.inst_counter.write(func_data.replace("{channel}", self.ch))
+                    
+                    cmd_imp = self.cmd_dict_c.get("set_impedance", {}).get(self.imp, "")
+                    if cmd_imp:
+                        self.inst_counter.write(cmd_imp.replace("{channel}", self.ch))
+
+                    cmd_coup = self.cmd_dict_c.get("set_coupling", {}).get(self.coup, "")
+                    if cmd_coup:
+                        self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
+
+                    # Trigger & Slope
+                    cmd_auto = self.cmd_dict_c.get("set_auto_trigger", {}).get(self.auto_trig, "")
+                    if cmd_auto:
+                        self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
+
+                    cmd_slope = self.cmd_dict_c.get("set_slope", {}).get(self.slope, "")
+                    if cmd_slope:
+                        self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
+
+                    # Filter spesifik per titik ukur
+                    cmd_filter = self.cmd_dict_c.get("set_filter", {}).get(filter_val, "")
+                    if cmd_filter:
+                        self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
+
+                    # Gate Time spesifik per titik ukur
+                    cmd_gate = self.cmd_dict_c.get("set_gate_time", {}).get("Time", "")
+                    if cmd_gate and "{value}" in cmd_gate:
+                        cmd_gate_sent = cmd_gate.replace("{value}", str(gate_val))
+                        for cmd in cmd_gate_sent.split(","):
+                            if cmd.strip():
+                                self.inst_counter.write(cmd.strip())
+                                time.sleep(0.1)
+
+                # --- TAHAP 2: SETTING FREQUENCY SOURCE ---
+                if self.inst_source:
+                    cmd_freq = self.cmd_dict_s.get("set_frequency", "FREQ {value}")
+                    cmd_volt = self.cmd_dict_s.get("set_amplitude", "VOLT {value}")
+                    cmd_outp = self.cmd_dict_s.get("output_enable", "")
+
+                    self.inst_source.write(cmd_freq.replace("{value}", str(freq_hz)))
+                    time.sleep(0.1)
+                    self.inst_source.write(cmd_volt.replace("{value}", str(level_val)))
+                    time.sleep(0.1)
+                    
+                    if cmd_outp:
+                        self.inst_source.write(cmd_outp)
+                        time.sleep(0.1)
+
+                # --- TAHAP 3: DELAY STABILISASI (JEDA TITIK) ---
+                self.status_update.emit(f"Status: Menunggu Jeda Stabilisasi ({self.jeda_titik}s)...")
+                time.sleep(self.jeda_titik)
+
+                # --- TAHAP 4: COUNTER MENGUKUR & LOOPING PENGULANGAN ---
+                self.status_update.emit(f"Status: Mengukur Titik {pt_idx+1}...")
+                
+                # Handling Timeout
+                try:
+                    if self.mode_manual:
+                        self.inst_counter.timeout = None
+                    else:
+                        gate_float = float(gate_val)
+                        self.inst_counter.timeout = int((gate_float * 1000) + 300000)
+                except:
+                    self.inst_counter.timeout = 1000000
+
+                for i in range(self.pengulangan):
+                    if not self._is_running:
+                        break
+
+                    cmd_read = self.cmd_dict_c.get("read", "READ?")
+                    hasil_str = self.inst_counter.query(cmd_read).strip()
+                    
+                    try:
+                        hasil_float = float(hasil_str)
+                    except ValueError:
+                        hasil_float = hasil_str
+
+                    waktu_ukur = datetime.now().strftime("%H:%M:%S")
+
+                    if self._is_running:
+                        self.data_ready.emit({
+                            "row_pt_idx": pt_idx,
+                            "index": i,
+                            "waktu": waktu_ukur,
+                            "titik_label": titik_label,
+                            "freq_val": freq_val_str,
+                            "unit": unit_str,
+                            "level": level_val,
+                            "shape": shape_val,
+                            "gate_time": gate_val,
+                            "hasil": hasil_float
+                        })
+
+                        progress_pt = int(((i + 1) / self.pengulangan) * 100)
+                        self.progress_titik_update.emit(progress_pt)
+
+                    time.sleep(0.2)
+
+                # Update progress total
+                prog_total = int(((pt_idx + 1) / total_titik) * 100)
+                self.progress_total_update.emit(prog_total)
+
+                # --- TAHAP 5: DELAY ANTAR TITIK ---
+                time.sleep(self.jeda_titik)
+
+            # --- SELESAI: SHUTDOWN RF FOR SAFETY ---
+            if self.inst_source and "output_disable" in self.cmd_dict_s:
+                cmd_off = self.cmd_dict_s.get("output_disable", "")
+                if cmd_off:
+                    self.inst_source.write(cmd_off)
+
+            if self._is_running:
+                self.status_update.emit("Status: Selesai Seluruh Pengukuran Full Auto")
+
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+            self.status_update.emit("Status: Error")
+        finally:
+            self.finished_task.emit()
+
+    def stop(self):
+        self._is_running = False
+
+
+
+# ==========================================
 # KELAS UTAMA APLIKASI
 # ==========================================
 class CalibrationApp(QMainWindow):
@@ -258,6 +459,8 @@ class CalibrationApp(QMainWindow):
 
         self.data_instrumen = {} 
         self.inst_counter = None 
+        self.data_sumber = {}
+        self.inst_source = None
         self.file_excel_aktif = None
         self.worker_semi = None 
         self.current_excel_row = 2 
@@ -325,21 +528,103 @@ class CalibrationApp(QMainWindow):
         form_counter.addRow("", lay_btn_c)
         layout.addWidget(group_counter)
 
+        # 2. Pengaturan Frequency Source
         group_source = QGroupBox("2. Pengaturan Frequency Source")
-        vbox_source = QVBoxLayout(group_source)
-        lbl_under_dev_source = QLabel("🚧\nUNDER DEVELOPMENT\nKoneksi Frequency Source sedang dalam pengembangan")
-        lbl_under_dev_source.setAlignment(Qt.AlignCenter)
-        lbl_under_dev_source.setStyleSheet("font-size: 16px; font-weight: bold; color: #e67e22; padding: 20px;")
-        vbox_source.addStretch()
-        vbox_source.addWidget(lbl_under_dev_source)
-        vbox_source.addStretch()
+        form_source = QFormLayout(group_source)
+
+        self.cb_source_name = QComboBox()
+        self.in_source_address = QLineEdit()
+        self.in_source_address.setPlaceholderText("Misal: GPIB0::10::INSTR")
+
+        lay_rs232_s = QHBoxLayout()
+        self.cb_baud_s = QComboBox(); self.cb_baud_s.addItems(["9600", "19200", "38400", "115200"])
+        self.cb_parity_s = QComboBox(); self.cb_parity_s.addItems(["None", "Even", "Odd"])
+        self.cb_data_s = QComboBox(); self.cb_data_s.addItems(["8", "7"])
+        lay_rs232_s.addWidget(QLabel("Baud Rate:")); lay_rs232_s.addWidget(self.cb_baud_s)
+        lay_rs232_s.addWidget(QLabel("Parity:")); lay_rs232_s.addWidget(self.cb_parity_s)
+        lay_rs232_s.addWidget(QLabel("Data Bits:")); lay_rs232_s.addWidget(self.cb_data_s)
+        lay_rs232_s.addStretch()
+
+        lay_btn_s = QHBoxLayout()
+        self.btn_connect_s = QPushButton("🔌 Hubungkan & Uji Alat")
+        self.btn_connect_s.setStyleSheet("background-color: #3498db; color: white;")
+        self.btn_disconnect_s = QPushButton("❌ Putuskan")
+        lay_btn_s.addWidget(self.btn_connect_s)
+        lay_btn_s.addWidget(self.btn_disconnect_s)
+
+        form_source.addRow("Pilih Instrumen:", self.cb_source_name)
+        form_source.addRow("Alamat (Address):", self.in_source_address)
+        form_source.addRow("Setelan RS232:", lay_rs232_s)
+        form_source.addRow("", lay_btn_s)
         layout.addWidget(group_source)
+
+        # 3. Bagian Cek Fungsi Frequency Source (Sementara)
+        self.chk_show_test_source = QCheckBox("Tampilkan Cek Fungsi Source")
+        self.chk_show_test_source.setStyleSheet("font-weight: bold; color: #d35400; margin-top: 5px;")
+        layout.addWidget(self.chk_show_test_source)
+        
+        self.group_test_source = QGroupBox("3. Cek Fungsi Frequency Source (Sementara)")
+        form_test_source = QFormLayout(self.group_test_source)
+        
+        self.in_test_volt = QLineEdit("1.0")
+        self.in_test_volt.setPlaceholderText("Nilai Vpp / dBm")
+        self.in_test_freq = QLineEdit("1000")
+        self.in_test_freq.setPlaceholderText("Nilai Hz")
+        
+        # Buat tombol Run dan Stop (RF OFF) bersisian
+        self.btn_run_test_s = QPushButton("▶ Run (Sinyal Uji & RF ON)")
+        self.btn_run_test_s.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
+        
+        self.btn_stop_test_s = QPushButton("⏹ RF OFF / Output OFF")
+        self.btn_stop_test_s.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        
+        lay_test_btn = QHBoxLayout()
+        lay_test_btn.addWidget(self.btn_run_test_s)
+        lay_test_btn.addWidget(self.btn_stop_test_s)
+
+        # Penambahan baris cukup dilakukan satu kali
+        form_test_source.addRow("Level Tegangan / Daya:", self.in_test_volt)
+        form_test_source.addRow("Frekuensi Keluaran (Hz):", self.in_test_freq)
+        form_test_source.addRow("", lay_test_btn)
+        
+        layout.addWidget(self.group_test_source)
+        
+        # Sembunyikan Bagian 3 secara default
+        self.group_test_source.setVisible(False)
+        self.chk_show_test_source.toggled.connect(self.group_test_source.setVisible)
 
         layout.addStretch()
         self.tabs.addTab(tab, "1. Konfigurasi Alat")
 
+        # Event connections
         self.btn_connect_c.clicked.connect(self.cek_koneksi_nyata)
         self.btn_disconnect_c.clicked.connect(self.putuskan_koneksi)
+        
+        self.btn_connect_s.clicked.connect(self.cek_koneksi_source_nyata)
+        self.btn_disconnect_s.clicked.connect(self.putuskan_koneksi_source)
+        self.btn_run_test_s.clicked.connect(self.run_cek_fungsi_source)
+        self.btn_stop_test_s.clicked.connect(self.stop_cek_fungsi_source)
+
+    def stop_cek_fungsi_source(self):
+        if not self.inst_source:
+            QMessageBox.warning(self, "Peringatan", "Frequency Source belum terhubung!")
+            return
+
+        nama_alat = self.cb_source_name.currentText()
+        cmd_dict = {}
+        if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
+            cmd_dict = self.data_sumber["frequency_sources"][nama_alat].get("commands", {})
+
+        cmd_outp_off = cmd_dict.get("output_disable", "")
+
+        try:
+            if cmd_outp_off:
+                self.inst_source.write(cmd_outp_off)
+                QMessageBox.information(self, "RF OFF Berhasil", f"Perintah `{cmd_outp_off}` dikirim. Output/RF berhasil dimatikan.")
+            else:
+                QMessageBox.warning(self, "Info", f"Perintah output_disable tidak didefinisikan di JSON untuk {nama_alat}.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Gagal mematikan RF Output:\n{str(e)}")
 
     # ==========================================
     # 2. SETUP TAB MODE SEMI OTOMATIS
@@ -514,14 +799,277 @@ class CalibrationApp(QMainWindow):
     # ==========================================
     def setup_tab_full_auto(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        lbl_under_dev = QLabel("🛠️\nMODE FULL OTOMATIS\nSEDANG DALAM TAHAP PENGEMBANGAN\n🚧")
-        lbl_under_dev.setAlignment(Qt.AlignCenter)
-        lbl_under_dev.setStyleSheet("font-size: 24px; font-weight: bold; color: #c0392b;")
-        layout.addStretch()
-        layout.addWidget(lbl_under_dev)
-        layout.addStretch()
+        main_layout = QVBoxLayout(tab)
+        
+        top_container = QWidget()
+        top_vlayout = QVBoxLayout(top_container)
+        top_vlayout.setContentsMargins(0, 0, 0, 0)
+        top_vlayout.setSpacing(6)
+
+        # --- GRID 4 KOLOM DI ATAS ---
+        settings_container = QWidget()
+        settings_grid = QGridLayout(settings_container)
+        settings_grid.setContentsMargins(0, 0, 0, 0)
+        settings_grid.setHorizontalSpacing(8)
+
+        # 1. Measurement Input
+        group_meas = QGroupBox("1. Measurement Input")
+        form_meas = QFormLayout(group_meas)
+        form_meas.setSpacing(2)
+        
+        self.cb_func_full = QComboBox()
+        self.cb_func_full.addItems(["Frequency","Ratio 1-2","Ratio 1-3","Ratio 2-1","Ratio 3-1","Totalize", "Phase 1-2", "Duty Cycle", "Volt Peaks","TI 1-2","Period","Rise Time","Fall Time","Pos Width", "Neg Width"])
+        self.cb_channel_full = QComboBox()
+        self.cb_channel_full.addItems(["1", "2", "3"])
+        self.cb_osc_full = QComboBox()
+        self.cb_osc_full.addItems(["EXT", "INT"])
+        
+        lay_ch_osc = QHBoxLayout()
+        lay_ch_osc.addWidget(self.cb_channel_full)
+        lay_ch_osc.addWidget(QLabel("Osc:"))
+        lay_ch_osc.addWidget(self.cb_osc_full)
+        
+        self.cb_imp_full = QComboBox()
+        self.cb_imp_full.addItems(["50 OHM", "1 M OHM"])
+        self.cb_coup_full = QComboBox()
+        self.cb_coup_full.addItems(["DC", "AC"])
+        
+        lay_imp_coup = QHBoxLayout()
+        lay_imp_coup.addWidget(self.cb_imp_full)
+        lay_imp_coup.addWidget(self.cb_coup_full)
+
+        form_meas.addRow("Func:", self.cb_func_full)
+        form_meas.addRow("Ch/Osc:", lay_ch_osc)
+        form_meas.addRow("Imp/Coup:", lay_imp_coup)
+        settings_grid.addWidget(group_meas, 0, 0)
+
+        # 2. Trigger
+        group_trig = QGroupBox("2. Trigger")
+        form_trig = QFormLayout(group_trig)
+        form_trig.setSpacing(2)
+        
+        self.cb_auto_trig_full = QComboBox()
+        self.cb_auto_trig_full.addItems(["OFF", "ON"])
+        self.in_trig_lvl_full = QLineEdit("0")
+        self.cb_slope_full = QComboBox()
+        self.cb_slope_full.addItems(["POS", "NEG"])
+        self.cb_sens_full = QComboBox()
+        self.cb_sens_full.addItems(["MED","HI","LOW"])
+        
+        form_trig.addRow("Auto Trig:", self.cb_auto_trig_full)
+        form_trig.addRow("Level (V):", self.in_trig_lvl_full)
+        form_trig.addRow("Slope:", self.cb_slope_full)
+        form_trig.addRow("Sensitivity:", self.cb_sens_full)
+        settings_grid.addWidget(group_trig, 0, 1)
+
+        # 3. File Excel & Lingkungan
+        group_excel = QGroupBox("3. File Excel & Lingkungan")
+        form_excel = QFormLayout(group_excel)
+        form_excel.setSpacing(2)
+        
+        self.in_order_no_full = QLineEdit()
+        self.in_order_no_full.setPlaceholderText("E-26-06-006")
+        self.btn_create_excel_full = QPushButton("Buka/Buat Excel")
+        self.btn_create_excel_full.setObjectName("btnCreateFile")
+        
+        self.in_temp_awal_full = QLineEdit("20.0")
+        self.in_temp_awal_full.setPlaceholderText("°C")
+        self.in_rh_awal_full = QLineEdit("50.0")
+        self.in_rh_awal_full.setPlaceholderText("%")
+        self.btn_env_awal_full = QPushButton("Catat Lingkungan Awal")
+        
+        form_excel.addRow("No Order:", self.in_order_no_full)
+        form_excel.addRow("", self.btn_create_excel_full)
+        form_excel.addRow("Suhu (°C):", self.in_temp_awal_full)
+        form_excel.addRow("RH (%):", self.in_rh_awal_full)
+        form_excel.addRow("", self.btn_env_awal_full)
+        settings_grid.addWidget(group_excel, 0, 2)
+
+        # 4. Eksekusi Full Otomatis
+        group_exec = QGroupBox("4. Eksekusi Full Otomatis")
+        v_exec = QVBoxLayout(group_exec)
+        v_exec.setContentsMargins(5, 5, 5, 5)
+
+        self.chk_manual_full = QCheckBox("Mode Manual Instrument")
+        self.chk_manual_full.setStyleSheet("color: #d35400; font-weight: bold; margin-bottom: 2px;")
+        self.chk_manual_full.toggled.connect(self.toggle_manual_mode_full)
+        v_exec.addWidget(self.chk_manual_full)
+        
+        form_exec_inputs = QFormLayout()
+        form_exec_inputs.setSpacing(2)
+        
+        self.in_jeda_full = QLineEdit("1.0")
+        self.in_jeda_full.setPlaceholderText("s")
+        
+        self.spin_pengulangan_full = QSpinBox()
+        self.spin_pengulangan_full.setRange(1, 10000)
+        self.spin_pengulangan_full.setValue(10)
+        
+        form_exec_inputs.addRow("Jeda Titik (s):", self.in_jeda_full)
+        form_exec_inputs.addRow("Pengulangan:", self.spin_pengulangan_full)
+        v_exec.addLayout(form_exec_inputs)
+
+        self.btn_start_full = QPushButton("▶ Mulai Full Auto")
+        self.btn_start_full.setObjectName("btnStart")
+        self.btn_stop_full = QPushButton("⏹ Berhenti")
+        self.btn_stop_full.setObjectName("btnStop")
+        self.lbl_status_full = QLabel("Status: Siap")
+        
+        v_exec.addWidget(self.btn_start_full)
+        v_exec.addWidget(self.btn_stop_full)
+        
+        lay_foot_exec = QHBoxLayout()
+        self.chk_suara_full = QCheckBox("🔊 Notif")
+        self.chk_suara_full.setChecked(True)
+        lay_foot_exec.addWidget(self.chk_suara_full)
+        lay_foot_exec.addWidget(self.lbl_status_full)
+        v_exec.addLayout(lay_foot_exec)
+        
+        settings_grid.addWidget(group_exec, 0, 3)
+
+        top_vlayout.addWidget(settings_container)
+
+        # --- DUA PROGRESS BAR ---
+        lay_progress = QHBoxLayout()
+        lay_progress.setSpacing(10)
+
+        lay_p_titik = QVBoxLayout()
+        lbl_p_titik = QLabel("Progress Titik Ukur Saat Ini:")
+        lbl_p_titik.setStyleSheet("font-size: 11px; font-weight: bold;")
+        self.progress_bar_titik_full = QProgressBar()
+        self.progress_bar_titik_full.setValue(0)
+        self.progress_bar_titik_full.setAlignment(Qt.AlignCenter)
+        lay_p_titik.addWidget(lbl_p_titik)
+        lay_p_titik.addWidget(self.progress_bar_titik_full)
+
+        lay_p_total = QVBoxLayout()
+        lbl_p_total = QLabel("Progress Total Pengukuran:")
+        lbl_p_total.setStyleSheet("font-size: 11px; font-weight: bold;")
+        self.progress_bar_total_full = QProgressBar()
+        self.progress_bar_total_full.setValue(0)
+        self.progress_bar_total_full.setAlignment(Qt.AlignCenter)
+        lay_p_total.addWidget(lbl_p_total)
+        lay_p_total.addWidget(self.progress_bar_total_full)
+
+        lay_progress.addLayout(lay_p_titik)
+        lay_progress.addLayout(lay_p_total)
+        top_vlayout.addLayout(lay_progress)
+        
+        main_layout.addWidget(top_container)
+
+        # --- PANEL BAWAH: LAYOUT KIRI (TITIK UKUR SOURCE) & KANAN (TABEL HASIL) ---
+        bottom_container = QWidget()
+        bottom_layout = QHBoxLayout(bottom_container)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(10)
+
+        # 5. Titik Ukur Source (Kiri)
+        group_titik_ukur = QGroupBox("5. Titik Ukur Source (Skenario)")
+        v_tu = QVBoxLayout(group_titik_ukur)
+        v_tu.setContentsMargins(5, 5, 5, 5)
+        v_tu.setSpacing(4)
+
+        lay_jumlah_tu = QHBoxLayout()
+        lay_jumlah_tu.addWidget(QLabel("Jumlah Titik Ukur:"))
+        self.spin_jumlah_tu_full = QSpinBox()
+        self.spin_jumlah_tu_full.setRange(1, 100)
+        self.spin_jumlah_tu_full.setValue(5)
+        self.spin_jumlah_tu_full.valueChanged.connect(self.update_tabel_skenario_full)
+        lay_jumlah_tu.addWidget(self.spin_jumlah_tu_full)
+        lay_jumlah_tu.addStretch()
+        v_tu.addLayout(lay_jumlah_tu)
+
+        self.table_skenario_full = QTableWidget(0, 6)
+        self.table_skenario_full.setHorizontalHeaderLabels(["Level", "Bentuk", "Frekuensi", "Satuan", "Gate Time (s)", "Filter"])
+        self.table_skenario_full.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        v_tu.addWidget(self.table_skenario_full)
+        
+        bottom_layout.addWidget(group_titik_ukur, stretch=2)  # Rasio 2 (Kiri)
+
+        # Tabel Hasil Pengukuran (Kanan)
+        self.table_data_full = QTableWidget(0, 5) 
+        self.table_data_full.setHorizontalHeaderLabels(["No", "Waktu", "Titik Ukur", "Hasil Ukur", "Unit"])
+        self.table_data_full.setColumnWidth(0, 40)
+        self.table_data_full.setColumnWidth(1, 90)
+        self.table_data_full.setColumnWidth(2, 110)
+        self.table_data_full.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.table_data_full.setColumnWidth(4, 60)
+        self.table_data_full.setAlternatingRowColors(True)
+        
+        bottom_layout.addWidget(self.table_data_full, stretch=3)  # Rasio 3 (Kanan)
+
+        main_layout.addWidget(bottom_container, stretch=1)
+        
+        # Hubungkan event tombol di Tab Full Auto
+        self.btn_create_excel_full.clicked.connect(self.buat_atau_buka_excel)
+        self.btn_env_awal_full.clicked.connect(self.catat_lingkungan_ke_excel)
+        self.btn_start_full.clicked.connect(self.jalankan_pengukuran_full_otomatis)
+        self.btn_stop_full.clicked.connect(self.hentikan_pengukuran_full)
+
         self.tabs.addTab(tab, "3. Mode Full Otomatis")
+        self.update_tabel_skenario_full()
+
+    def update_tabel_skenario_full(self):
+        jumlah_titik = self.spin_jumlah_tu_full.value()
+        self.table_skenario_full.setRowCount(jumlah_titik)
+        
+        for row in range(jumlah_titik):
+            # Kolom 0: Level (Vpp / dBm)
+            if not self.table_skenario_full.item(row, 0):
+                self.table_skenario_full.setItem(row, 0, QTableWidgetItem("1.0"))
+            
+            # Kolom 1: Bentuk Sinyal (QComboBox)
+            if not self.table_skenario_full.cellWidget(row, 1):
+                cb_shape = QComboBox()
+                cb_shape.addItems(["SIN", "SQU", "TRI", "RAMP", "PULS", "DC"])
+                self.table_skenario_full.setCellWidget(row, 1, cb_shape)
+            
+            # Kolom 2: Nilai Frekuensi
+            if not self.table_skenario_full.item(row, 2):
+                self.table_skenario_full.setItem(row, 2, QTableWidgetItem("1000"))
+
+            # Kolom 3: Satuan Frekuensi (QComboBox)
+            if not self.table_skenario_full.cellWidget(row, 3):
+                cb_unit = QComboBox()
+                cb_unit.addItems(["Hz", "kHz", "MHz", "GHz"])
+                self.table_skenario_full.setCellWidget(row, 3, cb_unit)
+
+            # Kolom 4: Gate Time (s)
+            if not self.table_skenario_full.item(row, 4):
+                self.table_skenario_full.setItem(row, 4, QTableWidgetItem("10"))
+
+            # Kolom 5: Filter (QComboBox)
+            if not self.table_skenario_full.cellWidget(row, 5):
+                cb_filter = QComboBox()
+                cb_filter.addItems(["OFF", "ON"])
+                self.table_skenario_full.setCellWidget(row, 5, cb_filter)
+
+    def toggle_manual_mode_full(self, checked):
+        self.cb_func_full.setEnabled(not checked)
+        self.cb_channel_full.setEnabled(not checked)
+        self.cb_osc_full.setEnabled(not checked)
+        self.cb_imp_full.setEnabled(not checked)
+        self.cb_coup_full.setEnabled(not checked)
+        self.cb_auto_trig_full.setEnabled(not checked)
+        self.in_trig_lvl_full.setEnabled(not checked)
+        self.cb_slope_full.setEnabled(not checked)
+        self.cb_sens_full.setEnabled(not checked)
+        self.table_skenario_full.setEnabled(not checked)
+        self.spin_jumlah_tu_full.setEnabled(not checked)
+
+    def toggle_manual_mode_full(self, checked):
+        self.cb_func_full.setEnabled(not checked)
+        self.cb_channel_full.setEnabled(not checked)
+        self.cb_osc_full.setEnabled(not checked)
+        self.cb_gate_mode_full.setEnabled(not checked)
+        self.in_gate_full.setEnabled(not checked)
+        self.cb_imp_full.setEnabled(not checked)
+        self.cb_coup_full.setEnabled(not checked)
+        self.cb_filter_full.setEnabled(not checked)
+        self.cb_auto_trig_full.setEnabled(not checked)
+        self.in_trig_lvl_full.setEnabled(not checked)
+        self.cb_slope_full.setEnabled(not checked)
+        self.cb_sens_full.setEnabled(not checked)
 
     # ==========================================
     # 4. SETUP TAB INFORMASI 
@@ -646,6 +1194,118 @@ class CalibrationApp(QMainWindow):
             
         self.cb_counter_name.currentIndexChanged.connect(self.update_alamat_default)
         self.update_alamat_default()
+        self.cb_source_name.clear()
+
+        if hasattr(self, 'data_sumber') and "frequency_sources" in self.data_sumber:
+            daftar_sumber = list(self.data_sumber["frequency_sources"].keys())
+            self.cb_source_name.addItems(daftar_sumber)
+            
+        self.cb_source_name.currentIndexChanged.connect(self.update_alamat_default_source)
+        self.update_alamat_default_source()
+
+    def update_alamat_default_source(self):
+        nama_alat = self.cb_source_name.currentText()
+        if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
+            alamat_default = self.data_sumber["frequency_sources"][nama_alat].get("default_address", "")
+            self.in_source_address.setText(alamat_default)
+
+    # --- KONEKSI FREQUENCY SOURCE ---
+    def cek_koneksi_source_nyata(self):
+        if not self.rm:
+            QMessageBox.warning(self, "Error", "Backend VISA tidak terdeteksi.")
+            return
+            
+        alamat = self.in_source_address.text().strip()
+        if not alamat:
+            QMessageBox.warning(self, "Peringatan", "Alamat Frequency Source tidak boleh kosong.")
+            return
+            
+        try:
+            self.inst_source = self.rm.open_resource(alamat)
+            if alamat.upper().startswith("ASRL") or alamat.upper().startswith("COM"):
+                self.inst_source.baud_rate = int(self.cb_baud_s.currentText())
+                    
+                self.inst_source.timeout = 2000
+                
+                nama_alat = self.cb_source_name.currentText()
+                cmd_idn = "*IDN?"
+                if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
+                    cmd_idn = self.data_sumber["frequency_sources"][nama_alat].get("commands", {}).get("identify", "*IDN?")
+                    
+                respon_idn = self.inst_source.query(cmd_idn).strip()
+                QMessageBox.information(self, "Koneksi Source Berhasil!", f"Terhubung ke Source: {alamat}\nRespon: {respon_idn}")
+                self.btn_connect_s.setText("✓ Terhubung")
+                self.btn_connect_s.setStyleSheet("background-color: #27ae60; color: white;")
+
+        except pyvisa.errors.VisaIOError as e:
+                QMessageBox.critical(self, "Gagal Terhubung", f"Detail Error:\n{str(e)}")
+                self.inst_source = None
+            
+        except Exception as e:
+                QMessageBox.critical(self, "Error Sistem", str(e))
+                self.inst_source = None
+
+    def putuskan_koneksi_source(self):
+        if self.inst_source:
+            try:
+                self.inst_source.close()
+                self.inst_source = None
+                self.btn_connect_s.setText("🔌 Hubungkan & Uji Alat")
+                self.btn_connect_s.setStyleSheet("background-color: #3498db; color: white;")
+                QMessageBox.information(self, "Info", "Koneksi Frequency Source berhasil diputuskan.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Gagal memutuskan: {str(e)}")
+        else:
+            QMessageBox.information(self, "Info", "Tidak ada koneksi Frequency Source aktif.")
+
+    # --- UJI CEK FUNGSI SOURCE (SEMENTARA) ---
+    def run_cek_fungsi_source(self):
+        if not self.inst_source:
+            QMessageBox.warning(self, "Peringatan", "Frequency Source belum terhubung! Klik 'Hubungkan & Uji Alat' terlebih dahulu.")
+            return
+
+        volt_val = self.in_test_volt.text().strip()
+        freq_val = self.in_test_freq.text().strip()
+
+        if not volt_val or not freq_val:
+            QMessageBox.warning(self, "Peringatan", "Level Tegangan/Daya dan Frekuensi Keluaran harus diisi.")
+            return
+
+        nama_alat = self.cb_source_name.currentText()
+        cmd_dict = {}
+        if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
+            cmd_dict = self.data_sumber["frequency_sources"][nama_alat].get("commands", {})
+
+        cmd_freq = cmd_dict.get("set_frequency", "FREQ {value}")
+        cmd_volt = cmd_dict.get("set_amplitude", "VOLT {value}")
+        cmd_outp = cmd_dict.get("output_enable", "")
+
+        try:
+            # 1. Kirim perintah Frekuensi
+            cmd_freq_to_send = cmd_freq.replace("{value}", freq_val)
+            self.inst_source.write(cmd_freq_to_send)
+            time.sleep(0.1)
+
+            # 2. Kirim perintah Level Tegangan / Daya
+            cmd_volt_to_send = cmd_volt.replace("{value}", volt_val)
+            self.inst_source.write(cmd_volt_to_send)
+            time.sleep(0.1)
+
+            # 3. Kirim perintah Output ON / RF ON (jika ada di JSON)
+            if cmd_outp:
+                self.inst_source.write(cmd_outp)
+                time.sleep(0.1)
+
+            QMessageBox.information(
+                self, 
+                "Cek Fungsi Berhasil", 
+                f"Perintah berhasil dikirim ke {nama_alat}:\n"
+                f"1. Frekuensi: {cmd_freq_to_send}\n"
+                f"2. Amplitude: {cmd_volt_to_send}\n"
+                f"3. Output State: {cmd_outp if cmd_outp else 'N/A'}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error Eksekusi", f"Gagal mengirim perintah ke Frequency Source:\n{str(e)}")
 
     def update_alamat_default(self):
         nama_alat = self.cb_counter_name.currentText()
@@ -956,6 +1616,128 @@ class CalibrationApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal membuka User Guide:\n{str(e)}")
         # ---------------------------------------------------------
+
+    def jalankan_pengukuran_full_otomatis(self):
+        if not self.file_excel_aktif:
+            QMessageBox.warning(self, "Peringatan", "Buka file Excel terlebih dahulu!")
+            return
+            
+        if not self.inst_counter or not self.inst_source:
+            QMessageBox.warning(self, "Peringatan", "Pastikan Frequency Counter dan Frequency Source SUDAH TERHUBUNG pada Tab Konfigurasi!")
+            return
+
+        # Ambil data skenario dari tabel
+        skenario_list = []
+        for row in range(self.table_skenario_full.rowCount()):
+            level = self.table_skenario_full.item(row, 0).text().strip() if self.table_skenario_full.item(row, 0) else "1.0"
+            shape = self.table_skenario_full.cellWidget(row, 1).currentText()
+            freq_val = self.table_skenario_full.item(row, 2).text().strip() if self.table_skenario_full.item(row, 2) else "1000"
+            unit = self.table_skenario_full.cellWidget(row, 3).currentText()
+            gate_time = self.table_skenario_full.item(row, 4).text().strip() if self.table_skenario_full.item(row, 4) else "10"
+            filter_val = self.table_skenario_full.cellWidget(row, 5).currentText()
+
+            skenario_list.append({
+                "level": level, "shape": shape, "freq_val": freq_val,
+                "unit": unit, "gate_time": gate_time, "filter": filter_val
+            })
+
+        self.table_data_full.setRowCount(0)
+        
+        try:
+            wb = openpyxl.load_workbook(self.file_excel_aktif)
+            ws = wb["Data Pengukuran"]
+            self.current_excel_row = 2 if ws.max_row < 2 else ws.max_row + 1
+        except Exception:
+            self.current_excel_row = 2
+
+        nama_counter = self.cb_counter_name.currentText()
+        nama_sumber = self.cb_source_name.currentText()
+        
+        cmd_dict_c = self.data_instrumen.get("frequency_counters", {}).get(nama_counter, {}).get("commands", {})
+        cmd_dict_s = self.data_sumber.get("frequency_sources", {}).get(nama_sumber, {}).get("commands", {})
+
+        try:
+            jeda_titik = float(self.in_jeda_full.text().strip())
+        except ValueError:
+            jeda_titik = 1.0
+
+        self.btn_start_full.setEnabled(False)
+        self.progress_bar_titik_full.setValue(0)
+        self.progress_bar_total_full.setValue(0)
+
+        self.worker_full = WorkerPengukuranFull(
+            inst_counter=self.inst_counter,
+            inst_source=self.inst_source,
+            cmd_dict_c=cmd_dict_c,
+            cmd_dict_s=cmd_dict_s,
+            skenario_list=skenario_list,
+            fungsi_meas=self.cb_func_full.currentText(),
+            ch=self.cb_channel_full.currentText(),
+            osc=self.cb_osc_full.currentText(),
+            imp=self.cb_imp_full.currentText(),
+            coup=self.cb_coup_full.currentText(),
+            auto_trig=self.cb_auto_trig_full.currentText(),
+            trig_lvl=self.in_trig_lvl_full.text(),
+            slope=self.cb_slope_full.currentText(),
+            sens=self.cb_sens_full.currentText(),
+            jeda_titik=jeda_titik,
+            pengulangan=self.spin_pengulangan_full.value(),
+            mode_manual=self.chk_manual_full.isChecked()
+        )
+
+        self.worker_full.status_update.connect(self.lbl_status_full.setText)
+        self.worker_full.progress_titik_update.connect(self.progress_bar_titik_full.setValue)
+        self.worker_full.progress_total_update.connect(self.progress_bar_total_full.setValue)
+        self.worker_full.data_ready.connect(self.proses_data_masuk_full)
+        self.worker_full.error_occurred.connect(self.tampilkan_error_worker)
+        self.worker_full.finished_task.connect(self.worker_full_selesai)
+
+        self.worker_full.start()
+
+    def proses_data_masuk_full(self, data):
+        # Update UI Table
+        row_idx = self.table_data_full.rowCount()
+        self.table_data_full.insertRow(row_idx)
+        self.table_data_full.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
+        self.table_data_full.setItem(row_idx, 1, QTableWidgetItem(data["waktu"]))
+        self.table_data_full.setItem(row_idx, 2, QTableWidgetItem(data["titik_label"]))
+        self.table_data_full.setItem(row_idx, 3, QTableWidgetItem(str(data["hasil"])))
+        self.table_data_full.setItem(row_idx, 4, QTableWidgetItem(data["unit"]))
+        self.table_data_full.scrollToBottom()
+
+        # Update Excel (Menulis menyamping)
+        try:
+            wb = openpyxl.load_workbook(self.file_excel_aktif)
+            ws = wb["Data Pengukuran"]
+            
+            excel_row = self.current_excel_row + data["row_pt_idx"]
+
+            # Jika iterasi pengulangan pertama (index 0), tulis metadata titik ukurnya
+            if data["index"] == 0:
+                ws.cell(row=excel_row, column=1, value=f"Level:{data['level']} Vpp/dBm | Shape:{data['shape']} | Gate:{data['gate_time']}s")
+                ws.cell(row=excel_row, column=2, value=float(data["freq_val"]))
+                ws.cell(row=excel_row, column=3, value=data["unit"])
+
+            # Tulis hasil pengukuran di kolom ke-4 dan seterusnya
+            ws.cell(row=excel_row, column=4 + data["index"], value=data["hasil"])
+            wb.save(self.file_excel_aktif)
+        except Exception as e:
+            print("Error Excel Full Auto:", e)
+
+    def worker_full_selesai(self):
+        self.btn_start_full.setEnabled(True)
+        try:
+            if self.chk_suara_full.isChecked():
+                winsound.PlaySound(resource_path("notif.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except Exception:
+            pass
+
+    def hentikan_pengukuran_full(self):
+        if hasattr(self, 'worker_full') and self.worker_full and self.worker_full.isRunning():
+            self.worker_full.stop()
+            self.lbl_status_full.setText("Status: Dihentikan oleh pengguna.")
+
+
 
 if __name__ == "__main__":
     try:

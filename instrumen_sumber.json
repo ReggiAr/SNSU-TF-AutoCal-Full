@@ -1,11 +1,76 @@
 {
-  "last_updated": "2026-08-14 10:13:00",
+  "last_updated": "2026-08-24 12:00:00",
   "frequency_sources": {
-    "HP 33120A": {
-      "manufacturer": "Hewlett-Packard",
-      "default_address": "GPIB0::10::INSTR",
+    "SRS DS345": {
+      "manufacturer": "Stanford Research Systems",
+      "default_address": "GPIB0::19::INSTR",
       "commands": {
-        "identify": "*IDN?"
+        "identify": "*IDN?",
+        "reset": "*RST",
+        "set_frequency": "FREQ {value}",
+        "set_amplitude": "AMPL {value} VP",
+        "output_enable": "",
+        "output_disable": ""
+      }
+    },
+    "Keysight 33622A": {
+      "manufacturer": "Keysight Technologies",
+      "default_address": "USB0::0x0957::0x5707::MY59004046::0::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "set_frequency": "SOUR1:FREQ {value}",
+        "set_amplitude": "SOUR1:VOLT {value}",
+        "output_enable": "OUTP1 ON",
+        "output_disable": "OUTP1 OFF"
+      }
+    },
+    "Keysight AP5011A": {
+      "manufacturer": "Keysight / AnaPico",
+      "default_address": "USB0::0x03EB::0xAFFF::CH600J3648::0::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "set_frequency": "FREQ {value}",
+        "set_amplitude": "POW {value} dBm",
+        "output_enable": "OUTP ON",
+        "output_disable": "OUTP OFF"
+      }
+    },
+    "HP 83751B": {
+      "manufacturer": "Hewlett-Packard",
+      "default_address": "GPIB0::15::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "set_frequency": "FREQ {value} HZ",
+        "set_amplitude": "POW {value} dBm",
+        "output_enable": "OUTP ON",
+        "output_disable": "OUTP OFF"
+      }
+    },
+    "Agilent 8648C": {
+      "manufacturer": "Agilent/Keysight",
+      "default_address": "GPIB0::19::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "set_frequency": "FREQ:CW {value} HZ",
+        "set_amplitude": "POW:AMPL {value} dBm",
+        "output_enable": "OUTP:STAT ON",
+        "output_disable": "OUTP:STAT OFF"
+      }
+    },
+    "Agilent E8257D": {
+      "manufacturer": "Agilent/Keysight",
+      "default_address": "GPIB0::19::INSTR",
+      "commands": {
+        "identify": "*IDN?",
+        "reset": "*RST, *CLS",
+        "set_frequency": "FREQ {value}",
+        "set_amplitude": "POW {value} dBm",
+        "output_enable": "OUTP ON",
+        "output_disable": "OUTP OFF"
       }
     }
   }
