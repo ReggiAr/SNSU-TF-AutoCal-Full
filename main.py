@@ -254,14 +254,12 @@ class WorkerPengukuranFull(QThread):
 
                 # --- TAHAP 1: SETTING FREQUENCY COUNTER ---
                 if not self.mode_manual and self.inst_counter:
-                    # Reset
                     if "reset" in self.cmd_dict_c:
                         for r_cmd in self.cmd_dict_c["reset"].split(","):
                             if r_cmd.strip():
                                 self.inst_counter.write(r_cmd.strip())
                     time.sleep(0.2)
 
-                    # Fungsi, Osc, Impedance, Coupling
                     func_data = self.cmd_dict_c.get("functions", {}).get(self.fungsi_meas)
                     if isinstance(func_data, str) and func_data:
                         self.inst_counter.write(func_data.replace("{channel}", self.ch))
@@ -274,7 +272,6 @@ class WorkerPengukuranFull(QThread):
                     if cmd_coup:
                         self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
 
-                    # Trigger & Slope
                     cmd_auto = self.cmd_dict_c.get("set_auto_trigger", {}).get(self.auto_trig, "")
                     if cmd_auto:
                         self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
@@ -283,12 +280,12 @@ class WorkerPengukuranFull(QThread):
                     if cmd_slope:
                         self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
 
-                    # Filter spesifik per titik ukur
+                    # Kirim SCPI Filter per titik ukur
                     cmd_filter = self.cmd_dict_c.get("set_filter", {}).get(filter_val, "")
                     if cmd_filter:
                         self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
 
-                    # Gate Time spesifik per titik ukur
+                    # Kirim SCPI Gate Time per titik ukur
                     cmd_gate = self.cmd_dict_c.get("set_gate_time", {}).get("Time", "")
                     if cmd_gate and "{value}" in cmd_gate:
                         cmd_gate_sent = cmd_gate.replace("{value}", str(gate_val))
@@ -296,6 +293,18 @@ class WorkerPengukuranFull(QThread):
                             if cmd.strip():
                                 self.inst_counter.write(cmd.strip())
                                 time.sleep(0.1)
+
+                # --- PENETAPAN TIMEOUT DINAMIS UNTUK GATE TIME PANJANG (s.d. 1000s) ---
+                try:
+                    if self.mode_manual:
+                        self.inst_counter.timeout = None
+                    else:
+                        gate_float = float(gate_val)
+                        # Alokasikan margin waktu VISA timeout sebesar (Gate Time x 1000 ms) + 3.600.000 ms (1 jam)
+                        # Hal ini mencegah PyVISA memutus koneksi secara prematur pada titik 1 Hz / 20s - 1000s
+                        self.inst_counter.timeout = int((gate_float * 1000) + 3600000)
+                except Exception:
+                    self.inst_counter.timeout = 3600000
 
                 # --- TAHAP 2: SETTING FREQUENCY SOURCE ---
                 if self.inst_source:
@@ -386,8 +395,6 @@ class WorkerPengukuranFull(QThread):
 
     def stop(self):
         self._is_running = False
-
-
 
 # ==========================================
 # KELAS UTAMA APLIKASI
@@ -1224,26 +1231,28 @@ class CalibrationApp(QMainWindow):
             self.inst_source = self.rm.open_resource(alamat)
             if alamat.upper().startswith("ASRL") or alamat.upper().startswith("COM"):
                 self.inst_source.baud_rate = int(self.cb_baud_s.currentText())
-                    
-                self.inst_source.timeout = 2000
                 
-                nama_alat = self.cb_source_name.currentText()
-                cmd_idn = "*IDN?"
-                if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
-                    cmd_idn = self.data_sumber["frequency_sources"][nama_alat].get("commands", {}).get("identify", "*IDN?")
-                    
-                respon_idn = self.inst_source.query(cmd_idn).strip()
-                QMessageBox.information(self, "Koneksi Source Berhasil!", f"Terhubung ke Source: {alamat}\nRespon: {respon_idn}")
-                self.btn_connect_s.setText("✓ Terhubung")
-                self.btn_connect_s.setStyleSheet("background-color: #27ae60; color: white;")
-
-        except pyvisa.errors.VisaIOError as e:
-                QMessageBox.critical(self, "Gagal Terhubung", f"Detail Error:\n{str(e)}")
-                self.inst_source = None
+            self.inst_source.timeout = 3000
             
+            nama_alat = self.cb_source_name.currentText()
+            cmd_idn = "*IDN?"
+            if hasattr(self, 'data_sumber') and nama_alat in self.data_sumber.get("frequency_sources", {}):
+                cmd_idn = self.data_sumber["frequency_sources"][nama_alat].get("commands", {}).get("identify", "*IDN?")
+                
+            respon_idn = self.inst_source.query(cmd_idn).strip()
+            QMessageBox.information(self, "Koneksi Source Berhasil!", f"Terhubung ke Source: {alamat}\nRespon: {respon_idn}")
+            self.btn_connect_s.setText("✓ Terhubung")
+            self.btn_connect_s.setStyleSheet("background-color: #27ae60; color: white;")
+        except pyvisa.errors.VisaIOError as e:
+            QMessageBox.critical(self, "Gagal Terhubung", f"Detail Error:\n{str(e)}")
+            self.inst_source = None
+            self.btn_connect_s.setText("🔌 Hubungkan & Uji Alat")
+            self.btn_connect_s.setStyleSheet("background-color: #3498db; color: white;")
         except Exception as e:
-                QMessageBox.critical(self, "Error Sistem", str(e))
-                self.inst_source = None
+            QMessageBox.critical(self, "Error Sistem", str(e))
+            self.inst_source = None
+            self.btn_connect_s.setText("🔌 Hubungkan & Uji Alat")
+            self.btn_connect_s.setStyleSheet("background-color: #3498db; color: white;")
 
     def putuskan_koneksi_source(self):
         if self.inst_source:
@@ -1358,9 +1367,9 @@ class CalibrationApp(QMainWindow):
             QMessageBox.information(self, "Info", "Memang tidak ada koneksi aktif.")
             
     def buat_atau_buka_excel(self):
-        no_order = self.in_order_no.text().strip()
+        no_order = self.in_order_no.text().strip() or self.in_order_no_full.text().strip()
         if not no_order:
-            QMessageBox.warning(self, "Peringatan", "Nomor Order tidak boleh kosong!\nSilakan isi dengan format E-TAHUN-BULAN-NO (Contoh: E-26-04-100).")
+            QMessageBox.warning(self, "Peringatan", "Nomor Order tidak boleh kosong!\nSilakan isi pada kolom No Order.")
             return
             
         folder_dokumen = Path.home() / "Documents" / "Data_Kalibrasi_BSN"
@@ -1377,7 +1386,6 @@ class CalibrationApp(QMainWindow):
                 ws = wb.active
                 ws.title = "Data Pengukuran"
                 
-                # Setup format Header Horizontal
                 ws.cell(row=1, column=2, value="Titik Ukur")
                 ws.cell(row=1, column=3, value="Satuan")
                 ws.cell(row=1, column=4, value="Hasil Pengukuran ->")
@@ -1389,7 +1397,16 @@ class CalibrationApp(QMainWindow):
             else:
                 QMessageBox.information(self, "Berhasil", f"File Excel ditemukan dan siap digunakan:\n{path_file}")
                 
-            self.btn_create_excel.setStyleSheet("background-color: #27ae60; color: white;")
+            style_sukses = "background-color: #27ae60; color: white;"
+            self.btn_create_excel.setStyleSheet(style_sukses)
+            self.btn_create_excel_full.setStyleSheet(style_sukses)
+            self.btn_create_excel.setText("✓ Excel Aktif")
+            self.btn_create_excel_full.setText("✓ Excel Aktif")
+            
+            if not self.in_order_no.text():
+                self.in_order_no.setText(no_order)
+            if not self.in_order_no_full.text():
+                self.in_order_no_full.setText(no_order)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal membuat atau membuka file Excel:\n{e}")
 

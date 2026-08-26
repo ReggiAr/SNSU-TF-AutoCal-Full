@@ -1,33 +1,5 @@
 {
-  "last_updated": "2026-08-14 10:13:00",
   "frequency_counters": {
-    "Agilent 53131A": {
-      "manufacturer": "Agilent",
-      "default_address": "GPIB0::3::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "*RST,*CLS,*SRE 0,*ESE 0",
-        "read": "READ?",
-        "functions": {
-          "Frequency": "FUNC:FREQ (@{channel})",
-          "Period": "FUNC:PER (@{channel})",
-          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)",
-          "Totalize": "FUNC:TOT:CONT (@{channel})"
-        },
-        "set_gate_time": {
-          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value}",
-          "Auto": "SENS:TOT:ARM:STOP:SOUR IMM"
-        },
-        "set_impedance": {
-          "50 OHM": "INP{channel}:IMP 50",
-          "1 M OHM": "INP{channel}:IMP 1M"
-        },
-        "set_coupling": {
-          "DC": "INP{channel}:COUP DC",
-          "AC": "INP{channel}:COUP AC"
-        }
-      }
-    },
     "Agilent 53132A": {
       "manufacturer": "Agilent/Keysight",
       "default_address": "GPIB0::3::INSTR",
@@ -38,11 +10,27 @@
         "functions": {
           "Frequency": "FUNC:FREQ (@{channel})",
           "Period": "FUNC:PER (@{channel})",
-          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)"
+          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)",
+          "Ratio 1-3": "FUNC:FREQ:RAT (@1),(@3)",
+          "Ratio 2-1": "FUNC:FREQ:RAT (@2),(@1)",
+          "Ratio 3-1": "FUNC:FREQ:RAT (@3),(@1)",
+          "Totalize": "FUNC:TOT:CONT (@{channel})",
+          "Phase 1-2": "FUNC:PHAS (@1),(@2)",
+          "Duty Cycle": "FUNC:PDUT (@{channel})",
+          "Volt Peaks": "FUNC:VOLT:MAX (@{channel})",
+          "TI 1-2": "FUNC:TINT (@1),(@2)",
+          "Rise Time": "FUNC:RTIM (@{channel})",
+          "Fall Time": "FUNC:FTIM (@{channel})",
+          "Pos Width": "FUNC:PWID (@{channel})",
+          "Neg Width": "FUNC:NWID (@{channel})"
         },
         "set_gate_time": {
           "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value}",
           "Auto": "SENS:TOT:ARM:STOP:SOUR IMM"
+        },
+        "set_oscillator": {
+          "INT": "OSC:SOUR INT",
+          "EXT": "OSC:SOUR EXT"
         },
         "set_impedance": {
           "50 OHM": "INP{channel}:IMP 50",
@@ -51,31 +39,24 @@
         "set_coupling": {
           "DC": "INP{channel}:COUP DC",
           "AC": "INP{channel}:COUP AC"
-        }
-      }
-    },
-    "Keysight 53220A": {
-      "manufacturer": "Keysight Technologies",
-      "default_address": "USB0::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "*RST, *CLS, *SRE 0, *ESE 0",
-        "read": "READ?",
-        "functions": {
-          "Frequency": "CONF:FREQ (@{channel})",
-          "Period": "CONF:PER (@{channel})"
         },
-        "set_gate_time": {
-          "Time": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME {value}, *CLS",
-          "Auto": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME 0.1, *CLS"
+        "set_filter": {
+          "OFF": "INP{channel}:FILT OFF",
+          "ON": "INP{channel}:FILT ON"
         },
-        "set_impedance": {
-          "50 OHM": "INP{channel}:IMP 50",
-          "1 M OHM": "INP{channel}:IMP 1E6"
+        "set_trigger_auto": {
+          "ON": "EVEN{channel}:LEV:AUTO ON",
+          "OFF": "EVEN{channel}:LEV:AUTO OFF"
         },
-        "set_coupling": {
-          "DC": "INP{channel}:COUP DC",
-          "AC": "INP{channel}:COUP AC"
+        "set_trigger_level": "EVEN{channel}:LEV {value}",
+        "set_slope": {
+          "POS": "EVEN{channel}:SLOP POS",
+          "NEG": "EVEN{channel}:SLOP NEG"
+        },
+        "set_sensitivity": {
+          "HI": "EVEN{channel}:HYST:REL 0",
+          "MED": "EVEN{channel}:HYST:REL 50",
+          "LOW": "EVEN{channel}:HYST:REL 100"
         }
       }
     },
@@ -88,11 +69,28 @@
         "read": "READ?",
         "functions": {
           "Frequency": "CONF:FREQ (@{channel})",
-          "Period": "CONF:PER (@{channel})"
+          "Period": "CONF:PER (@{channel})",
+          "Ratio 1-2": "CONF:FREQ:RAT (@1),(@2)",
+          "Ratio 1-3": "CONF:FREQ:RAT (@1),(@3)",
+          "Ratio 2-1": "CONF:FREQ:RAT (@2),(@1)",
+          "Ratio 3-1": "CONF:FREQ:RAT (@3),(@1)",
+          "Totalize": "CONF:TOT:CONT (@{channel})",
+          "Phase 1-2": "CONF:PHAS (@1),(@2)",
+          "Duty Cycle": "CONF:PDUT (@{channel})",
+          "Volt Peaks": "CONF:VOLT:MAX (@{channel})",
+          "TI 1-2": "CONF:TINT (@1),(@2)",
+          "Rise Time": "CONF:RTIM (@{channel})",
+          "Fall Time": "CONF:FTIM (@{channel})",
+          "Pos Width": "CONF:PWID (@{channel})",
+          "Neg Width": "CONF:NWID (@{channel})"
         },
         "set_gate_time": {
-          "Time": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME {value}, *CLS",
-          "Auto": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME 0.1, *CLS"
+          "Time": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME {value}, SENS:PER:GATE:SOUR TIME, SENS:PER:GATE:TIME {value}, *CLS",
+          "Auto": "SENS:FREQ:GATE:SOUR TIME, SENS:FREQ:GATE:TIME 0.1, SENS:PER:GATE:SOUR TIME, SENS:PER:GATE:TIME 0.1, *CLS"
+        },
+        "set_oscillator": {
+          "INT": "ROSC:SOUR INT",
+          "EXT": "ROSC:SOUR EXT"
         },
         "set_impedance": {
           "50 OHM": "INP{channel}:IMP 50",
@@ -101,6 +99,24 @@
         "set_coupling": {
           "DC": "INP{channel}:COUP DC",
           "AC": "INP{channel}:COUP AC"
+        },
+        "set_filter": {
+          "ON": "INP{channel}:FILT ON",
+          "OFF": "INP{channel}:FILT OFF"
+        },
+        "set_auto_trigger": {
+          "ON": "INP{channel}:LEV:AUTO ON",
+          "OFF": "INP{channel}:LEV:AUTO OFF"
+        },
+        "set_trigger_level": "INP{channel}:LEV {value}; *CLS",
+        "set_slope": {
+          "POS": "INP{channel}:SLOP POS",
+          "NEG": "INP{channel}:SLOP NEG"
+        },
+        "set_sensitivity": {
+          "HI": "INP{channel}:NREJ OFF",
+          "MED": "INP{channel}:NREJ ON",
+          "LOW": "INP{channel}:NREJ ON"
         }
       }
     },
@@ -109,17 +125,51 @@
       "default_address": "GPIB0::19::INSTR",
       "commands": {
         "identify": "*IDN?",
-        "reset": "*RST, *CLS",
+        "reset": "*RST, *CLS, *SRE 0, *ESE 0",
         "read": "READ?",
         "functions": {
           "Frequency": {
             "1": "FUNC 'FREQ 1'; CONF:FREQ:RF; *CLS",
             "2": "FUNC 'FREQ 2'; CONF:FREQ; *CLS"
+          },
+          "Volt Peaks": {
+            "1": "FUNC 'POW 1'; CONF:POW:RF; *CLS",
+            "2": "FUNC 'POW 2'; CONF:POW; *CLS"
           }
         },
         "set_gate_time": {
           "Time": "FREQ:RES {value}",
           "Auto": "FREQ:RES 1"
+        },
+        "set_oscillator": {
+          "INT": "ROSC:SOUR INT",
+          "EXT": "ROSC:SOUR EXT"
+        },
+        "set_impedance": {
+          "50 OHM": "",
+          "1 M OHM": ""
+        },
+        "set_coupling": {
+          "DC": "",
+          "AC": ""
+        },
+        "set_filter": {
+          "ON": "",
+          "OFF": ""
+        },
+        "set_auto_trigger": {
+          "ON": "",
+          "OFF": ""
+        },
+        "set_trigger_level": "",
+        "set_slope": {
+          "POS": "",
+          "NEG": ""
+        },
+        "set_sensitivity": {
+          "HI": "",
+          "MED": "",
+          "LOW": ""
         }
       }
     },
@@ -134,107 +184,68 @@
           "Frequency": {
             "1": "MODE 3; SRCE 0; ARMM 5; *CLS",
             "2": "MODE 3; SRCE 1; ARMM 5; *CLS"
-          }
+          },
+          "Period": {
+            "1": "MODE 4; SRCE 0; ARMM 5; *CLS",
+            "2": "MODE 4; SRCE 1; ARMM 5; *CLS"
+          },
+          "Ratio 1-2": "MODE 3; SRCE 3; ARMM 5; *CLS",
+          "Phase 1-2": "MODE 5; ARMM 1; *CLS",
+          "Totalize": {
+            "1": "MODE 6; SRCE 0; ARMM 5; *CLS",
+            "2": "MODE 6; SRCE 1; ARMM 5; *CLS"
+          },
+          "Rise Time": {
+            "1": "MODE 2; SRCE 0; ARMM 1; *CLS",
+            "2": "MODE 2; SRCE 1; ARMM 1; *CLS"
+          },
+          "Fall Time": {
+            "1": "MODE 2; SRCE 0; ARMM 1; *CLS",
+            "2": "MODE 2; SRCE 1; ARMM 1; *CLS"
+          },
+          "Pos Width": {
+            "1": "MODE 1; SRCE 0; ARMM 1; *CLS",
+            "2": "MODE 1; SRCE 1; ARMM 1; *CLS"
+          },
+          "Neg Width": {
+            "1": "MODE 1; SRCE 0; ARMM 1; *CLS",
+            "2": "MODE 1; SRCE 1; ARMM 1; *CLS"
+          },
+          "TI 1-2": "MODE 0; SRCE 0; ARMM 0; *CLS"
         },
         "set_gate_time": {
           "Time": "SIZE {value}",
           "Auto": "SIZE 1"
-        }
-      }
-    },
-    "Keysight 3458A": {
-      "manufacturer": "Keysight (Multimeter)",
-      "default_address": "GPIB0::22::INSTR",
-      "commands": {
-        "identify": "ID?",
-        "reset": "PRESET NORM",
-        "read": "FREQ?",
-        "functions": {
-          "Frequency": "FUNC FREQ"
         },
-        "set_gate_time": {
-          "Time": "",
-          "Auto": ""
-        }
-      }
-    },
-    "Fluke PM6681": {
-      "manufacturer": "Fluke",
-      "default_address": "GPIB0::10::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "*RST",
-        "read": "READ?",
-        "functions": {
-          "Frequency": "MEAS:FREQ? (@{channel})"
+        "set_oscillator": {
+          "INT": "",
+          "EXT": ""
         },
-        "set_gate_time": {
-          "Time": "SENS:FREQ:ARM:STOP:TIM {value}",
-          "Auto": ""
-        }
-      }
-    },
-    "Phillips PM6674": {
-      "manufacturer": "Phillips",
-      "default_address": "GPIB0::11::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "*RST",
-        "read": "READ?",
-        "functions": {
-          "Frequency": "MEAS:FREQ? (@{channel})"
+        "set_impedance": {
+          "50 OHM": "TERM 0,0; TERM 1,0",
+          "1 M OHM": "TERM 0,1; TERM 1,1"
         },
-        "set_gate_time": {
-          "Time": "",
-          "Auto": ""
-        }
-      }
-    },
-    "Advantest R5363": {
-      "manufacturer": "Advantest",
-      "default_address": "GPIB0::8::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "C",
-        "read": "E",
-        "functions": {
-          "Frequency": ""
+        "set_coupling": {
+          "DC": "TCPL 0,0; TCPL 1,0",
+          "AC": "TCPL 0,1; TCPL 1,1"
         },
-        "set_gate_time": {
-          "Time": "",
-          "Auto": ""
-        }
-      }
-    },
-    "BK Precision 1823A": {
-      "manufacturer": "BK Precision",
-      "default_address": "ASRL1::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "",
-        "read": "",
-        "functions": {
-          "Frequency": ""
+        "set_filter": {
+          "ON": "",
+          "OFF": ""
         },
-        "set_gate_time": {
-          "Time": "",
-          "Auto": ""
-        }
-      }
-    },
-    "BK Precision 1856D": {
-      "manufacturer": "BK Precision",
-      "default_address": "ASRL2::INSTR",
-      "commands": {
-        "identify": "*IDN?",
-        "reset": "",
-        "read": "",
-        "functions": {
-          "Frequency": ""
+        "set_auto_trigger": {
+          "ON": "TMOD 0,1; TMOD 1,1",
+          "OFF": "TMOD 0,0; TMOD 1,0"
         },
-        "set_gate_time": {
-          "Time": "",
-          "Auto": ""
+        "set_trigger_level": "LEVL 0,{value}; LEVL 1,{value}",
+        "set_slope": {
+          "POS": "TSLP 0,0; TSLP 1,0",
+          "NEG": "TSLP 0,1; TSLP 1,1"
+        },
+        "set_sensitivity": {
+          "HI": "",
+          "MED": "",
+          "LOW": ""
         }
       }
     }
