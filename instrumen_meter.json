@@ -8,25 +8,24 @@
         "reset": "*RST,*CLS,*SRE 0,*ESE 0",
         "read": "READ?",
         "functions": {
-          "Frequency": "FUNC:FREQ (@{channel})",
-          "Period": "FUNC:PER (@{channel})",
-          "Ratio 1-2": "FUNC:FREQ:RAT (@1),(@2)",
-          "Ratio 1-3": "FUNC:FREQ:RAT (@1),(@3)",
-          "Ratio 2-1": "FUNC:FREQ:RAT (@2),(@1)",
-          "Ratio 3-1": "FUNC:FREQ:RAT (@3),(@1)",
-          "Totalize": "FUNC:TOT:CONT (@{channel})",
-          "Phase 1-2": "FUNC:PHAS (@1),(@2)",
-          "Duty Cycle": "FUNC:PDUT (@{channel})",
-          "Volt Peaks": "FUNC:VOLT:MAX (@{channel})",
-          "TI 1-2": "FUNC:TINT (@1),(@2)",
-          "Rise Time": "FUNC:RTIM (@{channel})",
-          "Fall Time": "FUNC:FTIM (@{channel})",
-          "Pos Width": "FUNC:PWID (@{channel})",
-          "Neg Width": "FUNC:NWID (@{channel})"
+          "Frequency": "FUNC 'FREQ {channel}'",
+          "Period": "FUNC 'PER {channel}'",
+          "Ratio 1-2": "FUNC 'FREQ:RAT 1,2'",
+          "Ratio 1-3": "FUNC 'FREQ:RAT 1,3'",
+          "Ratio 2-1": "FUNC 'FREQ:RAT 2,1'",
+          "Totalize": "FUNC 'TOT {channel}'",
+          "Phase 1-2": "FUNC 'PHAS 1,2'",
+          "Duty Cycle": "FUNC 'PDUT {channel}'",
+          "Volt Peaks": "FUNC 'MAX {channel}'",
+          "TI 1-2": "FUNC 'TINT 1,2'",
+          "Rise Time": "FUNC 'RTIM {channel}'",
+          "Fall Time": "FUNC 'FTIM {channel}'",
+          "Pos Width": "FUNC 'PWID {channel}'",
+          "Neg Width": "FUNC 'NWID {channel}'"
         },
         "set_gate_time": {
-          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value}",
-          "Auto": "SENS:TOT:ARM:STOP:SOUR IMM"
+          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value},:PER:ARM:STAR:SOUR IMM,:PER:ARM:STOP:SOUR TIM,SENS:PER:ARM:STOP:TIM {value},*CLS",
+          "Auto": ":FREQ:ARM:STOP:SOUR IMM,:PER:ARM:STOP:SOUR IMM,*CLS"
         },
         "set_oscillator": {
           "INT": "OSC:SOUR INT",

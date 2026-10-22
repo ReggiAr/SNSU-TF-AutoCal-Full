@@ -24,7 +24,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # ==========================================
-# WORKER QTHREAD UNTUK PENGUKURAN
+# WORKER QTHREAD UNTUK PENGUKURAN SEMI AUTO
 # ==========================================
 class WorkerPengukuranSemi(QThread):
     status_update = Signal(str)
@@ -34,7 +34,7 @@ class WorkerPengukuranSemi(QThread):
     finished_task = Signal()
 
     def __init__(self, inst_counter, cmd_dict, fungsi, ch, osc, gate_mode, gate_val,
-                 imp, coup, filter_, auto_trig, trig_lvl, slope, sens, pengulangan, titik_ukur, mode_manual=False):
+                 imp, coup, filter_, auto_trig, trig_lvl, slope, sens, pengulangan, titik_ukur, mode_manual=False, is_rf=False):
         super().__init__()
         self.inst_counter = inst_counter
         self.cmd_dict = cmd_dict
@@ -55,66 +55,68 @@ class WorkerPengukuranSemi(QThread):
         self.pengulangan = pengulangan 
         self.titik_ukur = titik_ukur  
         self.mode_manual = mode_manual
+        self.is_rf = is_rf
         self._is_running = True
 
     def run(self):
         try:
             if not self.mode_manual:
-                self.status_update.emit("Status: konfigurasi Instrument...")
-            
-            # --- PENGIRIMAN KONFIGURASI KE INSTRUMEN ---
-                if "reset" in self.cmd_dict:
-                    for r_cmd in self.cmd_dict["reset"].split(","):
-                        if r_cmd.strip():
-                            self.inst_counter.write(r_cmd.strip())
-                time.sleep(0.5)
+                self.status_update.emit("Status: Konfigurasi Instrument...")
                 
-                #ini di modif biar bisa buat 53150a   
-                func_data = self.cmd_dict.get("functions", {}).get(self.fungsi)
-                if isinstance(func_data, dict):
-                    cmd_fungsi = func_data.get(self.ch, "")
-                    if cmd_fungsi:
-                        self.inst_counter.write(cmd_fungsi.replace("{channel}", self.ch))
-                elif isinstance(func_data, str) and func_data:
-                    self.inst_counter.write(func_data.replace("{channel}", self.ch))
-                
-                cmd_osc = self.cmd_dict.get("set_oscillator", {}).get(self.osc, "")
-                if cmd_osc:
-                    self.inst_counter.write(cmd_osc)
-                
-                cmd_imp = self.cmd_dict.get("set_impedance", {}).get(self.imp, "")
-                if cmd_imp:
-                    self.inst_counter.write(cmd_imp.replace("{channel}", self.ch))
-                
-                cmd_coup = self.cmd_dict.get("set_coupling", {}).get(self.coup, "")
-                if cmd_coup:
-                    self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
-                
-                cmd_filter = self.cmd_dict.get("set_filter", {}).get(self.filter_, "")
-                if cmd_filter:
-                    self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
-                
-                cmd_auto = self.cmd_dict.get("set_auto_trigger", {}).get(self.auto_trig, "")
-                if cmd_auto:
-                    self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
-                
-                cmd_lvl = self.cmd_dict.get("set_trigger_level", "")
-                if cmd_lvl and self.trig_lvl:
-                    self.inst_counter.write(cmd_lvl.replace("{channel}", self.ch).replace("{value}", self.trig_lvl))
-                
-                cmd_slope = self.cmd_dict.get("set_slope", {}).get(self.slope, "")
-                if cmd_slope:
-                    self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
-                
-                sens_data = self.cmd_dict.get("set_sensitivity")
-                if isinstance(sens_data, dict):
-                    cmd_sens = sens_data.get(self.sens, "")
-                    if cmd_sens:
-                        self.inst_counter.write(cmd_sens.replace("{channel}", self.ch))
-                elif isinstance(sens_data, str) and sens_data:
-                    cmd_sens = sens_data.replace("{channel}", self.ch).replace("{value}", self.sens)
-                    self.inst_counter.write(cmd_sens)
+                # Pengaturan selain Gate Time HANYA dikirim jika BUKAN RF Measurement
+                if not self.is_rf:
+                    if "reset" in self.cmd_dict:
+                        for r_cmd in self.cmd_dict["reset"].split(","):
+                            if r_cmd.strip():
+                                self.inst_counter.write(r_cmd.strip())
+                    time.sleep(0.5)
+                    
+                    func_data = self.cmd_dict.get("functions", {}).get(self.fungsi)
+                    if isinstance(func_data, dict):
+                        cmd_fungsi = func_data.get(self.ch, "")
+                        if cmd_fungsi:
+                            self.inst_counter.write(cmd_fungsi.replace("{channel}", self.ch))
+                    elif isinstance(func_data, str) and func_data:
+                        self.inst_counter.write(func_data.replace("{channel}", self.ch))
+                    
+                    cmd_osc = self.cmd_dict.get("set_oscillator", {}).get(self.osc, "")
+                    if cmd_osc:
+                        self.inst_counter.write(cmd_osc)
+                    
+                    cmd_imp = self.cmd_dict.get("set_impedance", {}).get(self.imp, "")
+                    if cmd_imp:
+                        self.inst_counter.write(cmd_imp.replace("{channel}", self.ch))
+                    
+                    cmd_coup = self.cmd_dict.get("set_coupling", {}).get(self.coup, "")
+                    if cmd_coup:
+                        self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
+                    
+                    cmd_filter = self.cmd_dict.get("set_filter", {}).get(self.filter_, "")
+                    if cmd_filter:
+                        self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
+                    
+                    cmd_auto = self.cmd_dict.get("set_auto_trigger", {}).get(self.auto_trig, "")
+                    if cmd_auto:
+                        self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
+                    
+                    cmd_lvl = self.cmd_dict.get("set_trigger_level", "")
+                    if cmd_lvl and self.trig_lvl:
+                        self.inst_counter.write(cmd_lvl.replace("{channel}", self.ch).replace("{value}", self.trig_lvl))
+                    
+                    cmd_slope = self.cmd_dict.get("set_slope", {}).get(self.slope, "")
+                    if cmd_slope:
+                        self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
+                    
+                    sens_data = self.cmd_dict.get("set_sensitivity")
+                    if isinstance(sens_data, dict):
+                        cmd_sens = sens_data.get(self.sens, "")
+                        if cmd_sens:
+                            self.inst_counter.write(cmd_sens.replace("{channel}", self.ch))
+                    elif isinstance(sens_data, str) and sens_data:
+                        cmd_sens = sens_data.replace("{channel}", self.ch).replace("{value}", self.sens)
+                        self.inst_counter.write(cmd_sens)
 
+                # Gate Time TETAP dikirim (baik RF maupun non-RF)
                 cmd_gate = self.cmd_dict.get("set_gate_time", {}).get(self.gate_mode, "")
                 if cmd_gate:
                     if self.gate_mode == "Time" and "{value}" in cmd_gate:
@@ -124,33 +126,37 @@ class WorkerPengukuranSemi(QThread):
                     for cmd in perintah_gate:
                         if cmd.strip():
                             self.inst_counter.write(cmd.strip())
-                            time.sleep(0.1) 
+                            time.sleep(0.1)
+            
             else:
                 self.status_update.emit("Status: Mode Manual. Melewati Konfigurasi")
                 time.sleep(1)    
-            # ---------------------------------------------
+
             self.status_update.emit("Status: Membaca data...")
             
             try:
                 if self.mode_manual:
-                    # Jika mode manual, beri batas waktu sangat lama (2000 detik/ 33 menit)
-                    # Karena GUI tidak tahu berapa gate time fisik di Instrumen
                     self.inst_counter.timeout = None
                 elif self.gate_mode == "Time" and self.gate_val:
                     gate_time_float = float(self.gate_val)
-                    # Waktu time out = (Gate Time x 1000 ms) + Margin aman 300.000 ms (300 detik)
-                    self.inst_counter.timeout = int((gate_time_float*1000) + 500000) 
+                    self.inst_counter.timeout = int((gate_time_float * 1000) + 3600000) 
                 else:
-                    self.inst_counter.timeout = 1000000
-            except:
-                self.inst_counter.timeout = 1000000
+                    self.inst_counter.timeout = 3600000
+            except Exception:
+                self.inst_counter.timeout = 3600000
                 
             # --- LOOPING PENGUKURAN ---
             for i in range(self.pengulangan):
                 if not self._is_running:
                     break
 
-                cmd_read = self.cmd_dict.get("read", "READ?")
+                cmd_read_data = self.cmd_dict.get("read", "READ?")
+                if isinstance(cmd_read_data, dict):
+                    cmd_read = cmd_read_data.get(self.fungsi, "READ?")
+                else:
+                    cmd_read = cmd_read_data
+                
+                cmd_read = cmd_read.replace("{channel}", self.ch)
                 hasil_str = self.inst_counter.query(cmd_read).strip()
                     
                 try:
@@ -162,7 +168,6 @@ class WorkerPengukuranSemi(QThread):
                 unit = "Hz" if "Freq" in self.fungsi else ("s" if "Period" in self.fungsi or "Time" in self.fungsi else "")
                 
                 if self._is_running:
-                    # Menambahkan variabel index (i) untuk acuan kolom Excel
                     self.data_ready.emit({
                         "index": i,
                         "waktu": waktu_ukur, 
@@ -201,7 +206,7 @@ class WorkerPengukuranFull(QThread):
 
     def __init__(self, inst_counter, inst_source, cmd_dict_c, cmd_dict_s, skenario_list,
                  fungsi_meas, ch, osc, imp, coup, auto_trig, trig_lvl, slope, sens,
-                 jeda_titik, pengulangan, mode_manual=False):
+                 jeda_titik, pengulangan, mode_manual=False, is_rf=False):
         super().__init__()
         self.inst_counter = inst_counter
         self.inst_source = inst_source
@@ -222,6 +227,7 @@ class WorkerPengukuranFull(QThread):
         self.jeda_titik = jeda_titik
         self.pengulangan = pengulangan
         self.mode_manual = mode_manual
+        self.is_rf = is_rf
         self._is_running = True
 
     def run(self):
@@ -254,38 +260,61 @@ class WorkerPengukuranFull(QThread):
 
                 # --- TAHAP 1: SETTING FREQUENCY COUNTER ---
                 if not self.mode_manual and self.inst_counter:
-                    if "reset" in self.cmd_dict_c:
-                        for r_cmd in self.cmd_dict_c["reset"].split(","):
-                            if r_cmd.strip():
-                                self.inst_counter.write(r_cmd.strip())
-                    time.sleep(0.2)
+                    if not self.is_rf:
+                        if "reset" in self.cmd_dict_c:
+                            for r_cmd in self.cmd_dict_c["reset"].split(","):
+                                if r_cmd.strip():
+                                    self.inst_counter.write(r_cmd.strip())
+                        time.sleep(0.2)
 
-                    func_data = self.cmd_dict_c.get("functions", {}).get(self.fungsi_meas)
-                    if isinstance(func_data, str) and func_data:
-                        self.inst_counter.write(func_data.replace("{channel}", self.ch))
-                    
-                    cmd_imp = self.cmd_dict_c.get("set_impedance", {}).get(self.imp, "")
-                    if cmd_imp:
-                        self.inst_counter.write(cmd_imp.replace("{channel}", self.ch))
+                        # Dukungan multi-tipe (dict maupun string) untuk fungsi pengukuran
+                        func_data = self.cmd_dict_c.get("functions", {}).get(self.fungsi_meas)
+                        if isinstance(func_data, dict):
+                            cmd_fungsi = func_data.get(self.ch, "")
+                            if cmd_fungsi:
+                                self.inst_counter.write(cmd_fungsi.replace("{channel}", self.ch))
+                        elif isinstance(func_data, str) and func_data:
+                            self.inst_counter.write(func_data.replace("{channel}", self.ch))
 
-                    cmd_coup = self.cmd_dict_c.get("set_coupling", {}).get(self.coup, "")
-                    if cmd_coup:
-                        self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
+                        cmd_osc = self.cmd_dict_c.get("set_oscillator", {}).get(self.osc, "")
+                        if cmd_osc:
+                            self.inst_counter.write(cmd_osc)
+                        
+                        cmd_imp = self.cmd_dict_c.get("set_impedance", {}).get(self.imp, "")
+                        if cmd_imp:
+                            self.inst_counter.write(cmd_imp.replace("{channel}", self.ch))
 
-                    cmd_auto = self.cmd_dict_c.get("set_auto_trigger", {}).get(self.auto_trig, "")
-                    if cmd_auto:
-                        self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
+                        cmd_coup = self.cmd_dict_c.get("set_coupling", {}).get(self.coup, "")
+                        if cmd_coup:
+                            self.inst_counter.write(cmd_coup.replace("{channel}", self.ch))
 
-                    cmd_slope = self.cmd_dict_c.get("set_slope", {}).get(self.slope, "")
-                    if cmd_slope:
-                        self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
+                        cmd_auto = self.cmd_dict_c.get("set_auto_trigger", {}).get(self.auto_trig, "")
+                        if cmd_auto:
+                            self.inst_counter.write(cmd_auto.replace("{channel}", self.ch))
 
-                    # Kirim SCPI Filter per titik ukur
-                    cmd_filter = self.cmd_dict_c.get("set_filter", {}).get(filter_val, "")
-                    if cmd_filter:
-                        self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
+                        cmd_lvl = self.cmd_dict_c.get("set_trigger_level", "")
+                        if cmd_lvl and self.trig_lvl:
+                            self.inst_counter.write(cmd_lvl.replace("{channel}", self.ch).replace("{value}", self.trig_lvl))
 
-                    # Kirim SCPI Gate Time per titik ukur
+                        cmd_slope = self.cmd_dict_c.get("set_slope", {}).get(self.slope, "")
+                        if cmd_slope:
+                            self.inst_counter.write(cmd_slope.replace("{channel}", self.ch))
+
+                        sens_data = self.cmd_dict_c.get("set_sensitivity")
+                        if isinstance(sens_data, dict):
+                            cmd_sens = sens_data.get(self.sens, "")
+                            if cmd_sens:
+                                self.inst_counter.write(cmd_sens.replace("{channel}", self.ch))
+                        elif isinstance(sens_data, str) and sens_data:
+                            cmd_sens = sens_data.replace("{channel}", self.ch).replace("{value}", self.sens)
+                            self.inst_counter.write(cmd_sens)
+
+                        # Kirim SCPI Filter per titik ukur (hanya jika bukan RF)
+                        cmd_filter = self.cmd_dict_c.get("set_filter", {}).get(filter_val, "")
+                        if cmd_filter:
+                            self.inst_counter.write(cmd_filter.replace("{channel}", self.ch))
+
+                    # Kirim SCPI Gate Time per titik ukur (TETAP DIKIRIM)
                     cmd_gate = self.cmd_dict_c.get("set_gate_time", {}).get("Time", "")
                     if cmd_gate and "{value}" in cmd_gate:
                         cmd_gate_sent = cmd_gate.replace("{value}", str(gate_val))
@@ -294,14 +323,12 @@ class WorkerPengukuranFull(QThread):
                                 self.inst_counter.write(cmd.strip())
                                 time.sleep(0.1)
 
-                # --- PENETAPAN TIMEOUT DINAMIS UNTUK GATE TIME PANJANG (s.d. 1000s) ---
+                # --- PENETAPAN TIMEOUT DINAMIS UNTUK GATE TIME PANJANG ---
                 try:
                     if self.mode_manual:
                         self.inst_counter.timeout = None
                     else:
                         gate_float = float(gate_val)
-                        # Alokasikan margin waktu VISA timeout sebesar (Gate Time x 1000 ms) + 3.600.000 ms (1 jam)
-                        # Hal ini mencegah PyVISA memutus koneksi secara prematur pada titik 1 Hz / 20s - 1000s
                         self.inst_counter.timeout = int((gate_float * 1000) + 3600000)
                 except Exception:
                     self.inst_counter.timeout = 3600000
@@ -327,23 +354,19 @@ class WorkerPengukuranFull(QThread):
 
                 # --- TAHAP 4: COUNTER MENGUKUR & LOOPING PENGULANGAN ---
                 self.status_update.emit(f"Status: Mengukur Titik {pt_idx+1}...")
-                
-                # Handling Timeout
-                try:
-                    if self.mode_manual:
-                        self.inst_counter.timeout = None
-                    else:
-                        gate_float = float(gate_val)
-                        self.inst_counter.timeout = int((gate_float * 1000) + 300000)
-                except:
-                    self.inst_counter.timeout = 1000000
 
                 for i in range(self.pengulangan):
                     if not self._is_running:
                         break
 
-                    cmd_read = self.cmd_dict_c.get("read", "READ?")
-                    hasil_str = self.inst_counter.query(cmd_read).strip()
+                    cmd_read_data = self.cmd_dict_c.get("read", "READ?")
+                    if isinstance(cmd_read_data, dict):
+                        cmd_read = cmd_read_data.get(self.fungsi_meas, "READ?")
+                    else:
+                        cmd_read = cmd_read_data
+                        
+                    cmd_read = cmd_read.replace("{channel}", self.ch)
+                    hasil_str = self.inst_counter.query(cmd_read).strip()   
                     
                     try:
                         hasil_float = float(hasil_str)
@@ -489,6 +512,7 @@ class CalibrationApp(QMainWindow):
 
         self.muat_instrumen_json()
         self.update_pilihan_instrumen() 
+        
         # --- FOOTER ---
         lbl_footer = QLabel("SNSU Time and Frequency Automated Calibration Software | National Measurement Standards of Indonesia | © 2026")
         lbl_footer.setAlignment(Qt.AlignCenter)
@@ -565,12 +589,12 @@ class CalibrationApp(QMainWindow):
         form_source.addRow("", lay_btn_s)
         layout.addWidget(group_source)
 
-        # 3. Bagian Cek Fungsi Frequency Source (Sementara)
+        # 3. Bagian Cek Fungsi Frequency Source
         self.chk_show_test_source = QCheckBox("Tampilkan Cek Fungsi Source")
         self.chk_show_test_source.setStyleSheet("font-weight: bold; color: #d35400; margin-top: 5px;")
         layout.addWidget(self.chk_show_test_source)
         
-        self.group_test_source = QGroupBox("3. Cek Fungsi Frequency Source (Sementara)")
+        self.group_test_source = QGroupBox("3. Cek Fungsi Frequency Source")
         form_test_source = QFormLayout(self.group_test_source)
         
         self.in_test_volt = QLineEdit("1.0")
@@ -578,7 +602,6 @@ class CalibrationApp(QMainWindow):
         self.in_test_freq = QLineEdit("1000")
         self.in_test_freq.setPlaceholderText("Nilai Hz")
         
-        # Buat tombol Run dan Stop (RF OFF) bersisian
         self.btn_run_test_s = QPushButton("▶ Run (Sinyal Uji & RF ON)")
         self.btn_run_test_s.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
         
@@ -589,24 +612,19 @@ class CalibrationApp(QMainWindow):
         lay_test_btn.addWidget(self.btn_run_test_s)
         lay_test_btn.addWidget(self.btn_stop_test_s)
 
-        # Penambahan baris cukup dilakukan satu kali
         form_test_source.addRow("Level Tegangan / Daya:", self.in_test_volt)
         form_test_source.addRow("Frekuensi Keluaran (Hz):", self.in_test_freq)
         form_test_source.addRow("", lay_test_btn)
         
         layout.addWidget(self.group_test_source)
-        
-        # Sembunyikan Bagian 3 secara default
         self.group_test_source.setVisible(False)
         self.chk_show_test_source.toggled.connect(self.group_test_source.setVisible)
 
         layout.addStretch()
         self.tabs.addTab(tab, "1. Konfigurasi Alat")
 
-        # Event connections
         self.btn_connect_c.clicked.connect(self.cek_koneksi_nyata)
         self.btn_disconnect_c.clicked.connect(self.putuskan_koneksi)
-        
         self.btn_connect_s.clicked.connect(self.cek_koneksi_source_nyata)
         self.btn_disconnect_s.clicked.connect(self.putuskan_koneksi_source)
         self.btn_run_test_s.clicked.connect(self.run_cek_fungsi_source)
@@ -674,11 +692,15 @@ class CalibrationApp(QMainWindow):
         lay_imp_coup = QHBoxLayout()
         lay_imp_coup.addWidget(self.cb_imp); lay_imp_coup.addWidget(self.cb_coup)
 
+        self.chk_rf_meas = QCheckBox("RF Measurement")
+        self.chk_rf_meas.setStyleSheet("color: #e67e22; font-weight: bold;")
+
         form_meas.addRow("Func:", self.cb_func)
         form_meas.addRow("Ch/Osc:", lay_ch_osc)
         form_meas.addRow("Gate Time:", lay_gate)
         form_meas.addRow("Imp/Coup:", lay_imp_coup)
         form_meas.addRow("Filter:", self.cb_filter)
+        form_meas.addRow("", self.chk_rf_meas)
         settings_grid.addWidget(group_meas, 0, 0)
 
         # --- KOLOM 2: Trigger ---
@@ -718,7 +740,6 @@ class CalibrationApp(QMainWindow):
         group_exec = QGroupBox("4. Eksekusi Pengukuran")
         v_exec = QVBoxLayout(group_exec)
 
-        # mode manual
         self.chk_manual = QCheckBox("Mode Manual Instrument")
         self.chk_manual.setStyleSheet("color: #d35400; font-weight: bold; margin-bottom: 10px;")
         self.chk_manual.toggled.connect(self.toggle_manual_mode)
@@ -752,7 +773,7 @@ class CalibrationApp(QMainWindow):
         v_exec.addWidget(self.btn_stop_semi)
         v_exec.addStretch()
         self.chk_suara = QCheckBox("🔊 Notification")
-        self.chk_suara.setChecked(True) # Dicentang secara default
+        self.chk_suara.setChecked(True)
         v_exec.addWidget(self.chk_suara)
         v_exec.addWidget(self.lbl_status)
         settings_grid.addWidget(group_exec, 0, 3)
@@ -787,8 +808,7 @@ class CalibrationApp(QMainWindow):
             self.in_gate.setEnabled(True)
 
     def toggle_manual_mode(self, checked):
-        # Membekukan/membuka inputan konfigurasi sesuai status checkbox
-        self.cb_func.setEnabled(not checked)
+        #self.cb_func.setEnabled(not checked)
         self.cb_channel.setEnabled(not checked)
         self.cb_osc.setEnabled(not checked)
         self.cb_gate_mode.setEnabled(not checked)
@@ -845,9 +865,13 @@ class CalibrationApp(QMainWindow):
         lay_imp_coup.addWidget(self.cb_imp_full)
         lay_imp_coup.addWidget(self.cb_coup_full)
 
+        self.chk_rf_meas_full = QCheckBox("RF Measurement")
+        self.chk_rf_meas_full.setStyleSheet("color: #e67e22; font-weight: bold;")
+
         form_meas.addRow("Func:", self.cb_func_full)
         form_meas.addRow("Ch/Osc:", lay_ch_osc)
         form_meas.addRow("Imp/Coup:", lay_imp_coup)
+        form_meas.addRow("", self.chk_rf_meas_full)
         settings_grid.addWidget(group_meas, 0, 0)
 
         # 2. Trigger
@@ -964,7 +988,7 @@ class CalibrationApp(QMainWindow):
         
         main_layout.addWidget(top_container)
 
-        # --- PANEL BAWAH: LAYOUT KIRI (TITIK UKUR SOURCE) & KANAN (TABEL HASIL) ---
+        # --- PANEL BAWAH: LAYOUT KIRI & KANAN ---
         bottom_container = QWidget()
         bottom_layout = QHBoxLayout(bottom_container)
         bottom_layout.setContentsMargins(0, 0, 0, 0)
@@ -991,7 +1015,7 @@ class CalibrationApp(QMainWindow):
         self.table_skenario_full.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         v_tu.addWidget(self.table_skenario_full)
         
-        bottom_layout.addWidget(group_titik_ukur, stretch=2)  # Rasio 2 (Kiri)
+        bottom_layout.addWidget(group_titik_ukur, stretch=2)
 
         # Tabel Hasil Pengukuran (Kanan)
         self.table_data_full = QTableWidget(0, 5) 
@@ -1003,11 +1027,10 @@ class CalibrationApp(QMainWindow):
         self.table_data_full.setColumnWidth(4, 60)
         self.table_data_full.setAlternatingRowColors(True)
         
-        bottom_layout.addWidget(self.table_data_full, stretch=3)  # Rasio 3 (Kanan)
+        bottom_layout.addWidget(self.table_data_full, stretch=3)
 
         main_layout.addWidget(bottom_container, stretch=1)
         
-        # Hubungkan event tombol di Tab Full Auto
         self.btn_create_excel_full.clicked.connect(self.buat_atau_buka_excel)
         self.btn_env_awal_full.clicked.connect(self.catat_lingkungan_ke_excel)
         self.btn_start_full.clicked.connect(self.jalankan_pengukuran_full_otomatis)
@@ -1021,31 +1044,25 @@ class CalibrationApp(QMainWindow):
         self.table_skenario_full.setRowCount(jumlah_titik)
         
         for row in range(jumlah_titik):
-            # Kolom 0: Level (Vpp / dBm)
             if not self.table_skenario_full.item(row, 0):
                 self.table_skenario_full.setItem(row, 0, QTableWidgetItem("1.0"))
             
-            # Kolom 1: Bentuk Sinyal (QComboBox)
             if not self.table_skenario_full.cellWidget(row, 1):
                 cb_shape = QComboBox()
                 cb_shape.addItems(["SIN", "SQU", "TRI", "RAMP", "PULS", "DC"])
                 self.table_skenario_full.setCellWidget(row, 1, cb_shape)
             
-            # Kolom 2: Nilai Frekuensi
             if not self.table_skenario_full.item(row, 2):
                 self.table_skenario_full.setItem(row, 2, QTableWidgetItem("1000"))
 
-            # Kolom 3: Satuan Frekuensi (QComboBox)
             if not self.table_skenario_full.cellWidget(row, 3):
                 cb_unit = QComboBox()
                 cb_unit.addItems(["Hz", "kHz", "MHz", "GHz"])
                 self.table_skenario_full.setCellWidget(row, 3, cb_unit)
 
-            # Kolom 4: Gate Time (s)
             if not self.table_skenario_full.item(row, 4):
                 self.table_skenario_full.setItem(row, 4, QTableWidgetItem("10"))
 
-            # Kolom 5: Filter (QComboBox)
             if not self.table_skenario_full.cellWidget(row, 5):
                 cb_filter = QComboBox()
                 cb_filter.addItems(["OFF", "ON"])
@@ -1064,20 +1081,6 @@ class CalibrationApp(QMainWindow):
         self.table_skenario_full.setEnabled(not checked)
         self.spin_jumlah_tu_full.setEnabled(not checked)
 
-    def toggle_manual_mode_full(self, checked):
-        self.cb_func_full.setEnabled(not checked)
-        self.cb_channel_full.setEnabled(not checked)
-        self.cb_osc_full.setEnabled(not checked)
-        self.cb_gate_mode_full.setEnabled(not checked)
-        self.in_gate_full.setEnabled(not checked)
-        self.cb_imp_full.setEnabled(not checked)
-        self.cb_coup_full.setEnabled(not checked)
-        self.cb_filter_full.setEnabled(not checked)
-        self.cb_auto_trig_full.setEnabled(not checked)
-        self.in_trig_lvl_full.setEnabled(not checked)
-        self.cb_slope_full.setEnabled(not checked)
-        self.cb_sens_full.setEnabled(not checked)
-
     # ==========================================
     # 4. SETUP TAB INFORMASI 
     # ==========================================
@@ -1085,7 +1088,6 @@ class CalibrationApp(QMainWindow):
         tab = QWidget()
         layout = QHBoxLayout(tab)
         
-        # --- Kolom Kiri: Informasi & JSON Monitoring ---
         gb_info = QGroupBox("Informasi Aplikasi & Status Database")
         v_info = QVBoxLayout(gb_info)
         
@@ -1100,22 +1102,17 @@ class CalibrationApp(QMainWindow):
         lbl_info.setWordWrap(True)
         v_info.addWidget(lbl_info)
 
-        # ==========================================
-        # PENAMBAHAN TOMBOL USER GUIDE
-        # ==========================================
         self.btn_user_guide = QPushButton("📖 Buka User Guide (Buku Panduan)")
         self.btn_user_guide.setStyleSheet("background-color: #3498db; color: white; padding: 6px; font-weight: bold; margin-top: 5px;")
         self.btn_user_guide.clicked.connect(self.buka_user_guide)
         v_info.addWidget(self.btn_user_guide)
         
-        # UI Monitoring JSON Meter
         self.lbl_update_meter = QLabel("<b>Update JSON Meter:</b> -")
         self.lbl_update_meter.setStyleSheet("margin-top: 10px; color: #2980b9;")
         self.txt_meter_list = QTextEdit()
         self.txt_meter_list.setReadOnly(True)
-        self.txt_meter_list.setMaximumHeight(80) # Dibatasi agar rapi
+        self.txt_meter_list.setMaximumHeight(80)
         
-        # UI Monitoring JSON Sumber
         self.lbl_update_sumber = QLabel("<b>Update JSON Sumber:</b> -")
         self.lbl_update_sumber.setStyleSheet("margin-top: 10px; color: #d35400;")
         self.txt_sumber_list = QTextEdit()
@@ -1128,7 +1125,6 @@ class CalibrationApp(QMainWindow):
         v_info.addWidget(self.txt_sumber_list)
         v_info.addStretch()
 
-        # --- Kolom Kanan: Bantuan ---
         gb_help = QGroupBox("Laporan Kendala (Log Error)")
         form_help = QFormLayout(gb_help)
         self.in_help_nama = QLineEdit()
@@ -1155,13 +1151,11 @@ class CalibrationApp(QMainWindow):
         path_meter = folder_dokumen / "instrumen_meter.json"
         path_sumber = folder_dokumen / "instrumen_sumber.json"
         
-        # 1. Muat JSON Meter
         try:
             if path_meter.exists():
                 with open(path_meter, 'r') as f:
                     self.data_instrumen = json.load(f)
                 
-                # Update Info GUI
                 tgl_update = self.data_instrumen.get("last_updated", "Tidak diketahui")
                 self.lbl_update_meter.setText(f"<b>Update JSON Meter:</b> {tgl_update}")
                 
@@ -1174,13 +1168,11 @@ class CalibrationApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error JSON Meter", str(e))
 
-        # 2. Muat JSON Sumber
         try:
             if path_sumber.exists():
                 with open(path_sumber, 'r') as f:
-                    self.data_sumber = json.load(f) # Simpan di variabel baru
+                    self.data_sumber = json.load(f)
                 
-                # Update Info GUI
                 tgl_update = self.data_sumber.get("last_updated", "Tidak diketahui")
                 self.lbl_update_sumber.setText(f"<b>Update JSON Sumber:</b> {tgl_update}")
                 
@@ -1189,8 +1181,7 @@ class CalibrationApp(QMainWindow):
                     self.txt_sumber_list.setPlainText("\n".join(daftar))
             else:
                 self.txt_sumber_list.setPlainText("File instrumen_sumber.json tidak ditemukan.")
-        except Exception as e:
-            # Tidak perlu memblokir aplikasi jika sumber belum ada (sedang tahap pengembangan)
+        except Exception:
             pass
 
     def update_pilihan_instrumen(self):
@@ -1216,7 +1207,6 @@ class CalibrationApp(QMainWindow):
             alamat_default = self.data_sumber["frequency_sources"][nama_alat].get("default_address", "")
             self.in_source_address.setText(alamat_default)
 
-    # --- KONEKSI FREQUENCY SOURCE ---
     def cek_koneksi_source_nyata(self):
         if not self.rm:
             QMessageBox.warning(self, "Error", "Backend VISA tidak terdeteksi.")
@@ -1267,7 +1257,6 @@ class CalibrationApp(QMainWindow):
         else:
             QMessageBox.information(self, "Info", "Tidak ada koneksi Frequency Source aktif.")
 
-    # --- UJI CEK FUNGSI SOURCE (SEMENTARA) ---
     def run_cek_fungsi_source(self):
         if not self.inst_source:
             QMessageBox.warning(self, "Peringatan", "Frequency Source belum terhubung! Klik 'Hubungkan & Uji Alat' terlebih dahulu.")
@@ -1290,17 +1279,14 @@ class CalibrationApp(QMainWindow):
         cmd_outp = cmd_dict.get("output_enable", "")
 
         try:
-            # 1. Kirim perintah Frekuensi
             cmd_freq_to_send = cmd_freq.replace("{value}", freq_val)
             self.inst_source.write(cmd_freq_to_send)
             time.sleep(0.1)
 
-            # 2. Kirim perintah Level Tegangan / Daya
             cmd_volt_to_send = cmd_volt.replace("{value}", volt_val)
             self.inst_source.write(cmd_volt_to_send)
             time.sleep(0.1)
 
-            # 3. Kirim perintah Output ON / RF ON (jika ada di JSON)
             if cmd_outp:
                 self.inst_source.write(cmd_outp)
                 time.sleep(0.1)
@@ -1342,7 +1328,14 @@ class CalibrationApp(QMainWindow):
                 self.inst_counter.baud_rate = int(self.cb_baud_c.currentText())
                 
             self.inst_counter.timeout = 2000
-            respon_idn = self.inst_counter.query('*IDN?')
+            
+            # Ambil perintah identify dari JSON secara dinamis
+            nama_alat = self.cb_counter_name.currentText()
+            cmd_idn = "*IDN?"
+            if nama_alat in self.data_instrumen.get("frequency_counters", {}):
+                cmd_idn = self.data_instrumen["frequency_counters"][nama_alat].get("commands", {}).get("identify", "*IDN?")
+                
+            respon_idn = self.inst_counter.query(cmd_idn).strip()
             QMessageBox.information(self, "Koneksi Berhasil!", f"Terhubung ke: {alamat}\nRespon: {respon_idn}")
             self.btn_connect_c.setText("✓ Terhubung")
             self.btn_connect_c.setStyleSheet("background-color: #27ae60; color: white;")
@@ -1415,7 +1408,6 @@ class CalibrationApp(QMainWindow):
             QMessageBox.warning(self, "Peringatan", "File Excel belum dibuat/dibuka!")
             return
             
-        # Tentukan fase berdasarkan teks yang sedang tampil di tombol
         fase = "AWAL" if "Awal" in self.btn_env_awal.text() else "AKHIR"
         
         try:
@@ -1434,7 +1426,6 @@ class CalibrationApp(QMainWindow):
             wb.save(self.file_excel_aktif)
             QMessageBox.information(self, "Berhasil", f"Kondisi lingkungan ({fase}) berhasil dicatat!")
             
-            # Ubah teks tombol menjadi sebaliknya untuk pencatatan berikutnya
             if fase == "AWAL":
                 self.btn_env_awal.setText("Catat Lingkungan Akhir")
             else:
@@ -1442,9 +1433,7 @@ class CalibrationApp(QMainWindow):
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal mencatat kondisi lingkungan: {str(e)}")
-    # ---------------------------------------------------------
-    # EKSEKUSI PENGUKURAN DENGAN THREAD
-    # ---------------------------------------------------------
+
     def jalankan_pengukuran_semi_otomatis(self):
         if not self.file_excel_aktif:
             QMessageBox.warning(self, "Peringatan", "Buka file Excel terlebih dahulu!")
@@ -1459,20 +1448,17 @@ class CalibrationApp(QMainWindow):
             QMessageBox.warning(self, "Peringatan", "Perintah untuk alat ini tidak ditemukan di konfigurasi JSON.")
             return
             
-        # --- PERBAIKAN: RESET TABEL & HITUNG BARIS EXCEL ---
         self.table_data.setRowCount(0)
         
         try:
             wb = openpyxl.load_workbook(self.file_excel_aktif)
             ws = wb["Data Pengukuran"]
-            # Memastikan selalu mulai dari baris kosong (dimulai dari baris ke-2 jika data masih kosong)
             if ws.max_row < 2:
                 self.current_excel_row = 2
             else:
                 self.current_excel_row = ws.max_row + 1
-        except Exception as e:
+        except Exception:
             self.current_excel_row = 2
-        # ---------------------------------------------------
 
         cmd_dict = self.data_instrumen["frequency_counters"][nama_alat].get("commands", {})
         
@@ -1513,7 +1499,8 @@ class CalibrationApp(QMainWindow):
             sens=sens,
             pengulangan=pengulangan,
             titik_ukur=titik_ukur,
-            mode_manual=self.chk_manual.isChecked()
+            mode_manual=self.chk_manual.isChecked(),
+            is_rf=self.chk_rf_meas.isChecked()
         )
         
         self.worker_semi.status_update.connect(self.update_status_ui)
@@ -1532,9 +1519,8 @@ class CalibrationApp(QMainWindow):
         titik_ukur = data["titik_ukur"]
         hasil = data["hasil"]
         unit = data["unit"]
-        idx = data["index"] # Indeks data ke-n
+        idx = data["index"]
 
-        # --- 1. CETAK KE GUI ---
         row_idx = self.table_data.rowCount()
         self.table_data.insertRow(row_idx)
         self.table_data.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
@@ -1544,14 +1530,12 @@ class CalibrationApp(QMainWindow):
         self.table_data.setItem(row_idx, 4, QTableWidgetItem(unit))
         self.table_data.scrollToBottom()
         
-        # --- 2. CETAK KE EXCEL (HORIZONTAL) ---
         try:
             wb = openpyxl.load_workbook(self.file_excel_aktif)
             ws = wb["Data Pengukuran"]
             
             excel_row = self.current_excel_row
             
-            # Jika ini iterasi pertama (index = 0) dalam set pengukuran, masukkan angka dan satuan titik ukurnya di B dan C
             if idx == 0:
                 val_str = self.in_titik_ukur_val.text().strip()
                 try:
@@ -1562,9 +1546,7 @@ class CalibrationApp(QMainWindow):
                 ws.cell(row=excel_row, column=2, value=val_num) 
                 ws.cell(row=excel_row, column=3, value=self.cb_titik_ukur_unit.currentText()) 
             
-            # Tulis hasil pengukuran secara menyamping mulai dari kolom ke-4 (D, E, F, ...) tanpa timestamp
             ws.cell(row=excel_row, column=4 + idx, value=hasil)
-            
             wb.save(self.file_excel_aktif)
         except Exception as e:
             QMessageBox.warning(self, "Error Excel", f"Gagal menyimpan ke Excel: {str(e)}")
@@ -1579,7 +1561,6 @@ class CalibrationApp(QMainWindow):
                 winsound.PlaySound(resource_path("notif.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
         except Exception:
             pass
-        # ------------------------------------
 
     def hentikan_pengukuran(self):
         if self.worker_semi and self.worker_semi.isRunning():
@@ -1588,7 +1569,6 @@ class CalibrationApp(QMainWindow):
         else:
             self.lbl_status.setText("Status: Tidak ada pengukuran aktif.")
 
-    # ---------------------------------------------------------
     def simpan_laporan_kendala(self):
         nama = self.in_help_nama.text().strip()
         kendala = self.in_help_desc.toPlainText().strip()
@@ -1619,20 +1599,15 @@ class CalibrationApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Gagal Simpan", f"Gagal menyimpan file log:\n{str(e)}")
 
-
     def buka_user_guide(self):
         try:
-            # Menggunakan resource_path agar bisa melacak PDF di dalam perut .exe
             pdf_path = resource_path("I.MF.0.70 User Guide for SNSU TF-AutoCal.pdf")
-            
             if os.path.exists(pdf_path):
-                # Membuka file menggunakan aplikasi PDF bawaan Windows (Edge/Acrobat)
                 os.startfile(pdf_path)
             else:
                 QMessageBox.warning(self, "Tidak Ditemukan", "File User Guide tidak ditemukan di dalam sistem.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal membuka User Guide:\n{str(e)}")
-        # ---------------------------------------------------------
 
     def jalankan_pengukuran_full_otomatis(self):
         if not self.file_excel_aktif:
@@ -1643,7 +1618,6 @@ class CalibrationApp(QMainWindow):
             QMessageBox.warning(self, "Peringatan", "Pastikan Frequency Counter dan Frequency Source SUDAH TERHUBUNG pada Tab Konfigurasi!")
             return
 
-        # Ambil data skenario dari tabel
         skenario_list = []
         for row in range(self.table_skenario_full.rowCount()):
             level = self.table_skenario_full.item(row, 0).text().strip() if self.table_skenario_full.item(row, 0) else "1.0"
@@ -1699,7 +1673,8 @@ class CalibrationApp(QMainWindow):
             sens=self.cb_sens_full.currentText(),
             jeda_titik=jeda_titik,
             pengulangan=self.spin_pengulangan_full.value(),
-            mode_manual=self.chk_manual_full.isChecked()
+            mode_manual=self.chk_manual_full.isChecked(),
+            is_rf=self.chk_rf_meas_full.isChecked()
         )
 
         self.worker_full.status_update.connect(self.lbl_status_full.setText)
@@ -1712,7 +1687,6 @@ class CalibrationApp(QMainWindow):
         self.worker_full.start()
 
     def proses_data_masuk_full(self, data):
-        # Update UI Table
         row_idx = self.table_data_full.rowCount()
         self.table_data_full.insertRow(row_idx)
         self.table_data_full.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
@@ -1722,20 +1696,17 @@ class CalibrationApp(QMainWindow):
         self.table_data_full.setItem(row_idx, 4, QTableWidgetItem(data["unit"]))
         self.table_data_full.scrollToBottom()
 
-        # Update Excel (Menulis menyamping)
         try:
             wb = openpyxl.load_workbook(self.file_excel_aktif)
             ws = wb["Data Pengukuran"]
             
             excel_row = self.current_excel_row + data["row_pt_idx"]
 
-            # Jika iterasi pengulangan pertama (index 0), tulis metadata titik ukurnya
             if data["index"] == 0:
                 ws.cell(row=excel_row, column=1, value=f"Level:{data['level']} Vpp/dBm | Shape:{data['shape']} | Gate:{data['gate_time']}s")
                 ws.cell(row=excel_row, column=2, value=float(data["freq_val"]))
                 ws.cell(row=excel_row, column=3, value=data["unit"])
 
-            # Tulis hasil pengukuran di kolom ke-4 dan seterusnya
             ws.cell(row=excel_row, column=4 + data["index"], value=data["hasil"])
             wb.save(self.file_excel_aktif)
         except Exception as e:
@@ -1755,7 +1726,6 @@ class CalibrationApp(QMainWindow):
             self.lbl_status_full.setText("Status: Dihentikan oleh pengguna.")
 
 
-
 if __name__ == "__main__":
     try:
         myappid = 'laboratorium.waktudanfrekuensi.kalibrasi.2'
@@ -1764,8 +1734,6 @@ if __name__ == "__main__":
         pass
         
     app = QApplication(sys.argv)
-
-    # Ikon taskbar (dibungkus resource_path)
     app.setWindowIcon(QIcon(resource_path("logo.ico")))
 
     window = CalibrationApp()
