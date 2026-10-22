@@ -6,17 +6,34 @@
       "commands": {
         "identify": "*IDN?",
         "reset": "*RST,*CLS,*SRE 0,*ESE 0",
-        "read": "READ?",
+      "read": {
+          "Frequency": "READ:FREQ?",
+          "Period": "READ:PER?",
+          "Ratio 1-2": "READ:FREQ:RAT?",
+          "Ratio 1-3": "READ:FREQ:RAT?",
+          "Ratio 2-1": "READ:FREQ:RAT?",
+          "Ratio 3-1": "READ:FREQ:RAT?",
+          "Totalize": "READ:TOT?",
+          "Phase 1-2": "READ:PHAS?",
+          "Duty Cycle": "READ:PDUT?",
+          "Volt Peaks": "READ:VOLT:MAX?",
+          "TI 1-2": "READ:TINT?",
+          "Rise Time": "READ:RTIM?",
+          "Fall Time": "READ:FTIM?",
+          "Pos Width": "READ:PWID?",
+          "Neg Width": "READ:NWID?"
+        },
         "functions": {
           "Frequency": "FUNC 'FREQ {channel}'",
           "Period": "FUNC 'PER {channel}'",
           "Ratio 1-2": "FUNC 'FREQ:RAT 1,2'",
           "Ratio 1-3": "FUNC 'FREQ:RAT 1,3'",
           "Ratio 2-1": "FUNC 'FREQ:RAT 2,1'",
+          "Ratio 3-1": "FUNC 'FREQ:RAT 3,1'",
           "Totalize": "FUNC 'TOT {channel}'",
           "Phase 1-2": "FUNC 'PHAS 1,2'",
           "Duty Cycle": "FUNC 'PDUT {channel}'",
-          "Volt Peaks": "FUNC 'MAX {channel}'",
+          "Volt Peaks": "FUNC 'VOLT:MAX {channel}'",
           "TI 1-2": "FUNC 'TINT 1,2'",
           "Rise Time": "FUNC 'RTIM {channel}'",
           "Fall Time": "FUNC 'FTIM {channel}'",
@@ -24,12 +41,12 @@
           "Neg Width": "FUNC 'NWID {channel}'"
         },
         "set_gate_time": {
-          "Time": ":FREQ:ARM:STAR:SOUR IMM,:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value},:PER:ARM:STAR:SOUR IMM,:PER:ARM:STOP:SOUR TIM,SENS:PER:ARM:STOP:TIM {value},*CLS",
-          "Auto": ":FREQ:ARM:STOP:SOUR IMM,:PER:ARM:STOP:SOUR IMM,*CLS"
+          "Time": "SENS:FREQ:ARM:STAR:SOUR IMM,SENS:FREQ:ARM:STOP:SOUR TIM,SENS:FREQ:ARM:STOP:TIM {value},*CLS",
+          "Auto": "SENS:FREQ:ARM:STOP:SOUR IMM,*CLS"
         },
         "set_oscillator": {
-          "INT": "OSC:SOUR INT",
-          "EXT": "OSC:SOUR EXT"
+          "INT": "ROSC:SOUR INT",
+          "EXT": "ROSC:SOUR EXT"
         },
         "set_impedance": {
           "50 OHM": "INP{channel}:IMP 50",
